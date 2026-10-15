@@ -1,0 +1,107 @@
+[
+  {
+    "id": "1",
+    "data": { "first name": "Joseph", "last name": "Martin", "birthday": "1928", "deathday": "2004", "gender": "M" },
+    "rels": { "parents": [], "spouses": ["2"], "children": ["5", "6", "7"] }
+  },
+  {
+    "id": "2",
+    "data": { "first name": "Marie", "last name": "Le Gall", "birthday": "1932", "gender": "F" },
+    "rels": { "parents": [], "spouses": ["1"], "children": ["5", "6", "7"] }
+  },
+  {
+    "id": "3",
+    "data": { "first name": "Henri", "last name": "Dubois", "birthday": "1930", "deathday": "2011", "gender": "M" },
+    "rels": { "parents": [], "spouses": ["4"], "children": ["8"] }
+  },
+  {
+    "id": "4",
+    "data": { "first name": "Odette", "last name": "Roux", "birthday": "1933", "gender": "F" },
+    "rels": { "parents": [], "spouses": ["3"], "children": ["8"] }
+  },
+  {
+    "id": "5",
+    "data": { "first name": "Pierre", "last name": "Martin", "birthday": "1955", "gender": "M" },
+    "rels": { "parents": ["1", "2"], "spouses": ["8", "9"], "children": ["11", "10", "12", "13"] }
+  },
+  {
+    "id": "6",
+    "data": { "first name": "Anne", "last name": "Martin", "birthday": "1958", "gender": "F" },
+    "rels": { "parents": ["1", "2"], "spouses": ["14"], "children": ["16", "15"] }
+  },
+  {
+    "id": "7",
+    "data": { "first name": "Luc", "last name": "Martin", "birthday": "1962", "gender": "M" },
+    "rels": { "parents": ["1", "2"], "spouses": [], "children": ["17"] }
+  },
+  {
+    "id": "8",
+    "data": { "first name": "Claire", "last name": "Dubois", "birthday": "1957", "gender": "F" },
+    "rels": { "parents": ["3", "4"], "spouses": ["5"], "children": ["11", "10", "12"] }
+  },
+  {
+    "id": "9",
+    "data": { "first name": "Sophie", "last name": "Bernard", "birthday": "1963", "gender": "F" },
+    "rels": { "parents": [], "spouses": ["5"], "children": ["13"] }
+  },
+  {
+    "id": "10",
+    "data": { "first name": "Thomas", "last name": "Martin", "birthday": "1982", "gender": "M" },
+    "rels": { "parents": ["5", "8"], "spouses": ["18"], "children": ["20", "19"] }
+  },
+  {
+    "id": "11",
+    "data": { "first name": "Julie", "last name": "Martin", "birthday": "1985", "gender": "F" },
+    "rels": { "parents": ["5", "8"], "spouses": [], "children": [] }
+  },
+  {
+    "id": "12",
+    "data": { "first name": "Mathieu", "last name": "Martin", "birthday": "", "gender": "M" },
+    "rels": { "parents": ["5", "8"], "spouses": [], "children": [] }
+  },
+  {
+    "id": "13",
+    "data": { "first name": "Emma", "last name": "Martin", "birthday": "1996", "gender": "F" },
+    "rels": { "parents": ["5", "9"], "spouses": [], "children": [] }
+  },
+  {
+    "id": "14",
+    "data": { "first name": "Karim", "last name": "Benali", "birthday": "1956", "gender": "M" },
+    "rels": { "parents": [], "spouses": ["6"], "children": ["16", "15"] }
+  },
+  {
+    "id": "15",
+    "data": { "first name": "Léa", "last name": "Benali", "birthday": "1984", "gender": "F" },
+    "rels": { "parents": ["6", "14"], "spouses": [], "children": ["21"] }
+  },
+  {
+    "id": "16",
+    "data": { "first name": "Yanis", "last name": "Benali", "birthday": "1987", "gender": "M" },
+    "rels": { "parents": ["6", "14"], "spouses": [], "children": [] }
+  },
+  {
+    "id": "17",
+    "data": { "first name": "Hugo", "last name": "Martin", "birthday": "1990", "gender": "M" },
+    "rels": { "parents": ["7"], "spouses": [], "children": [] }
+  },
+  {
+    "id": "18",
+    "data": { "first name": "Camille", "last name": "Petit", "birthday": "1984", "gender": "F" },
+    "rels": { "parents": [], "spouses": ["10"], "children": ["20", "19"] }
+  },
+  {
+    "id": "19",
+    "data": { "first name": "Louis", "last name": "Martin", "birthday": "2012", "gender": "M" },
+    "rels": { "parents": ["10", "18"], "spouses": [], "children": [] }
+  },
+  {
+    "id": "20",
+    "data": { "first name": "Jade", "last name": "Martin", "birthday": "2015", "gender": "F" },
+    "rels": { "parents": ["10", "18"], "spouses": [], "children": [] }
+  },
+  {
+    "id": "21",
+    "data": { "first name": "Inès", "last name": "Benali", "birthday": "2018", "gender": "F" },
+    "rels": { "parents": ["15"], "spouses": [], "children": [] }
+  }
+]

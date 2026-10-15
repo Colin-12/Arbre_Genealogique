@@ -54,6 +54,8 @@ Chaque étape produit quelque chose de visible.
 - [ ] Vérifier les cas de test (voir plus bas)
 - [ ] Régler le style : couleurs, cartes, zoom, déplacement, mobile
 - [ ] Tri des fratries : par date de naissance, repli sur un ordre manuel
+- [ ] Contexte de la vue : bandeau "Vue centrée sur ...", fil d'Ariane des personnes visitées
+- [ ] Navigation : boutons "Vue d'ensemble", "Remonter d'un niveau", "Revenir au départ"
 
 ### Étape 2 : la base de données
 - [ ] Appliquer `db/schema.sql`

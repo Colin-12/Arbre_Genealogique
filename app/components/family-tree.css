@@ -1,0 +1,117 @@
+/* Thème clair "papier". C'est ici que se joue le rendu final : tout se règle avec ces variables. */
+.f3.arbre {
+  --male-color: #4f86a3;
+  --female-color: #c4607a;
+  --genderless-color: #8a8a8a;
+  --background-color: #f7f4ee;
+  --text-color: #2a2a2a;
+  --muted-color: #6f6a5f;
+  --line-color: #8f8672;      /* liens parent - enfant */
+  --union-color: #c79a3b;     /* liens de couple */
+  --highlight-color: #1f5f7a; /* chemin vers la personne centrale */
+
+  width: 100%;
+  height: 100vh;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---------- Traits ----------
+   La bibliothèque dessine ses traits en blanc (pensé pour son thème sombre).
+   On les repeint, et on garde une épaisseur constante à l'écran quel que soit le zoom. */
+.f3.arbre path.link {
+  stroke: var(--line-color);
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Couple : trait doré, plus épais (la classe est posée par FamilyTree.tsx) */
+.f3.arbre path.link.link-spouse {
+  stroke: var(--union-color);
+  stroke-width: 6px;
+}
+
+.f3.arbre path.link.f3-path-to-main {
+  stroke: var(--highlight-color);
+  stroke-width: 3px;
+}
+.f3.arbre path.link.link-spouse.f3-path-to-main {
+  stroke: var(--union-color);
+  stroke-width: 6px;
+}
+
+/* Conjoints non voisins (remariage) : le trait direct est caché, remplacé par un pont
+   dessiné au-dessus des cartes intermédiaires (voir lib/unions.ts) */
+.f3.arbre path.link.link-hidden {
+  display: none;
+}
+.f3.arbre path.link-bridge {
+  fill: none;
+  stroke: var(--union-color);
+  stroke-width: 6px;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation: arbre-fade-in 0.4s ease 0.5s both;
+}
+@keyframes arbre-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ---------- Cartes ---------- */
+.f3.arbre div.card-inner {
+  background-color: #fff;
+  border: 2px solid var(--line-color);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(40, 30, 10, 0.12);
+  color: var(--text-color);
+}
+.f3.arbre div.card-male .card-inner   { border-color: var(--male-color); }
+.f3.arbre div.card-female .card-inner { border-color: var(--female-color); }
+.f3.arbre div.card-genderless .card-inner { border-color: var(--genderless-color); }
+
+/* Icône de personne : pastille de la couleur du genre */
+.f3.arbre div.card-image-rect .person-icon {
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  margin: 0 8px 0 6px;
+}
+.f3.arbre div.card-image-rect .person-icon svg {
+  padding: 9px;
+  border-radius: 50%;
+  background-color: transparent;
+}
+.f3.arbre div.card-male .person-icon svg   { color: #fff; background-color: var(--male-color); }
+.f3.arbre div.card-female .person-icon svg { color: #fff; background-color: var(--female-color); }
+.f3.arbre div.card-genderless .person-icon svg { color: #fff; background-color: var(--genderless-color); }
+
+/* Texte : nom en gras, dates plus discrètes */
+.f3.arbre div.card-label {
+  font-size: 13px;
+  line-height: 1.3;
+}
+.f3.arbre div.card-label > div:first-child {
+  font-weight: 600;
+  font-size: 14px;
+}
+.f3.arbre div.card-label > div:nth-child(2) {
+  color: var(--muted-color);
+  font-size: 12px;
+}
+
+/* Personne centrale et survol */
+.f3.arbre div.card-main .card-inner {
+  outline: 3px solid var(--highlight-color);
+  box-shadow: 0 4px 14px rgba(31, 95, 122, 0.35);
+}
+.f3.arbre div.card:hover .card-inner {
+  box-shadow: 0 4px 14px rgba(40, 30, 10, 0.25);
+}
+.f3.arbre div.card-inner.f3-path-to-main {
+  outline: 3px solid var(--highlight-color);
+}
