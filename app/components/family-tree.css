@@ -11,7 +11,8 @@
   --highlight-color: #1f5f7a; /* chemin vers la personne centrale */
 
   width: 100%;
-  height: 100vh;
+  flex: 1 1 auto; /* occupe la place restante sous la navigation (voir .arbre-shell) */
+  min-height: 0;
   background-color: var(--background-color);
   color: var(--text-color);
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -114,4 +115,175 @@
 }
 .f3.arbre div.card-inner.f3-path-to-main {
   outline: 3px solid var(--highlight-color);
+}
+
+/* =====================================================================
+   Navigation : bandeau de contexte et boutons (voir TreeNav.tsx)
+   ===================================================================== */
+.arbre-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* téléphone : tient compte de la barre d'adresse du navigateur */
+  background: #f7f4ee; /* même teinte que le fond de l'arbre (--background-color) */
+  /* Couleurs propres à la navigation (hors du conteneur .f3) */
+  --nav-bg: rgba(255, 255, 255, 0.92);
+  --nav-text: #2a2a2a;
+  --nav-muted: #6f6a5f;
+  --nav-border: #d9d2c3;
+  --nav-accent: #1f5f7a;
+}
+
+/* La navigation est dans le flux (au-dessus de l'arbre) : elle ne recouvre aucune carte */
+.arbre-nav {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--nav-text);
+}
+
+.arbre-panel {
+  background: var(--nav-bg);
+  border: 1px solid var(--nav-border);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(40, 30, 10, 0.12);
+  backdrop-filter: blur(6px);
+}
+
+.arbre-context {
+  padding: 8px 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+.arbre-context-label {
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nav-muted);
+}
+.arbre-crumbs {
+  display: flex;
+  flex-wrap: nowrap; /* une seule ligne : la hauteur du bandeau ne change jamais */
+  align-items: center;
+  gap: 2px;
+  margin-top: 2px;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.arbre-crumbs::-webkit-scrollbar {
+  display: none;
+}
+.arbre-crumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.arbre-crumb {
+  border: 0;
+  background: none;
+  padding: 2px 4px;
+  border-radius: 6px;
+  font: inherit;
+  color: var(--nav-accent);
+  cursor: pointer;
+}
+.arbre-crumb:hover {
+  background: rgba(31, 95, 122, 0.1);
+}
+.arbre-crumb:focus-visible {
+  outline: 2px solid var(--nav-accent);
+}
+.arbre-crumb-current {
+  padding: 2px 4px;
+  font-weight: 600;
+}
+.arbre-sep {
+  color: var(--nav-muted);
+}
+.arbre-count {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--nav-muted);
+}
+
+.arbre-actions {
+  position: relative;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+}
+.arbre-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px; /* confortable au doigt */
+  padding: 0 12px;
+  border: 1px solid var(--nav-border);
+  border-radius: 9px;
+  background: #fff;
+  color: var(--nav-text);
+  font: inherit;
+  font-size: 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.arbre-btn svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+.arbre-btn:hover:not(:disabled) {
+  border-color: var(--nav-accent);
+  color: var(--nav-accent);
+}
+.arbre-btn:focus-visible {
+  outline: 2px solid var(--nav-accent);
+  outline-offset: 2px;
+}
+.arbre-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Menu de choix du parent (quand il y en a deux) */
+.arbre-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  margin-top: 6px;
+  padding: 6px;
+}
+
+@media (max-width: 699px) {
+  .arbre-nav {
+    padding: 8px;
+  }
+  .arbre-context {
+    flex: 1 1 100%;
+  }
+  .arbre-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .arbre-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0 8px;
+    font-size: 13px;
+  }
 }
