@@ -329,11 +329,17 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
       <div ref={containerRef} className="f3 arbre" />
       {sheetOpen && anchor && (
         <PersonSheet
+          treeId={treeId}
           person={anchor}
           people={people}
           canEdit={canEdit && Boolean(treeId)}
           onClose={() => setSheetOpen(false)}
           onGo={(id) => goTo(id)}
+          onPhotoChanged={() =>
+            reload().catch((e) =>
+              setNotice({ text: `Photo enregistrée, mais l'affichage n'a pas pu se mettre à jour : ${e instanceof Error ? e.message : e}` })
+            )
+          }
           onEdit={() => {
             setSheetOpen(false);
             setManaging("edit");

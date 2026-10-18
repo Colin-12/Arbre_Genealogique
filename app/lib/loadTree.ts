@@ -1,5 +1,6 @@
 import type { Datum } from "family-chart";
 import { supabase } from "./supabase";
+import { signPhotoUrls } from "./photos";
 
 export type PersonRow = {
   id: string;
@@ -15,6 +16,7 @@ export type PersonRow = {
   birth_place: string | null;
   death_place: string | null;
   notes: string | null;
+  photo_path: string | null;
 };
 export type UnionRow = { id: string; partner_a: string; partner_b: string | null };
 export type FiliationRow = { child_id: string; union_id: string };
@@ -54,6 +56,8 @@ export function buildDatums(persons: PersonRow[], unions: UnionRow[], filiations
         "birth place": p.birth_place ?? "",
         "death place": p.death_place ?? "",
         notes: p.notes ?? "",
+        // Chemin de la photo dans le stockage ; l'adresse affichable (avatar) est ajoutée au chargement
+        photo_path: p.photo_path ?? "",
       },
       rels: { parents: [], spouses: [], children: [] },
     });
@@ -126,7 +130,7 @@ export async function loadTreePeople(treeId: string): Promise<Datum[]> {
   const [persons, unions, filiations] = await Promise.all([
     supabase
       .from("persons")
-      .select("id, first_names, last_name, gender, birth_date, birth_precision, death_date, death_precision, sibling_order, birth_last_name, birth_place, death_place, notes")
+      .select("id, first_names, last_name, gender, birth_date, birth_precision, death_date, death_precision, sibling_order, birth_last_name, birth_place, death_place, notes, photo_path")
       .eq("tree_id", treeId)
       .is("deleted_at", null),
     supabase.from("unions").select("id, partner_a, partner_b").eq("tree_id", treeId),
@@ -140,5 +144,15 @@ export async function loadTreePeople(treeId: string): Promise<Datum[]> {
     (filiations.data ?? []) as FiliationRow[]
   );
   if (people.length === 0) throw new Error("Cet arbre est vide.");
+
+  // Photos : le stockage est privé, on demande des adresses temporaires (une seule requête pour tout l'arbre)
+  const paths = people.map((p) => String(p.data["photo_path"] ?? "")).filter(Boolean);
+  if (paths.length > 0) {
+    const urls = await signPhotoUrls(paths);
+    for (const p of people) {
+      const url = urls.get(String(p.data["photo_path"] ?? ""));
+      if (url) p.data["avatar"] = url;
+    }
+  }
   return people;
 }
