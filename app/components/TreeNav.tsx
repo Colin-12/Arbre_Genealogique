@@ -23,6 +23,8 @@ type Props = {
   onFit: () => void;
   /** Si fournie, affiche un lien "Se déconnecter" dans le bandeau de contexte. */
   onSignOut?: () => void;
+  /** Si fournie, affiche le bouton "Fiche" (consultation de la personne au centre). */
+  onSheet?: () => void;
   /** Si fournie, affiche le bouton "Ajouter" (réservé aux propriétaires et éditeurs). */
   onAdd?: (relation: Relation) => void;
   /** Si fournie, affiche le bouton "Modifier" (corriger, retirer un lien, supprimer). */
@@ -39,7 +41,7 @@ type MenuName = "parents" | "add" | "manage" | null;
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onAdd, onManage, canDelete = true, searchPeople }: Props) {
+export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onSheet, onAdd, onManage, canDelete = true, searchPeople }: Props) {
   const [menu, setMenu] = useState<MenuName>(null);
   // Téléphone : la recherche est repliée derrière une loupe (sur ordinateur, elle est toujours visible)
   const [searchOpen, setSearchOpen] = useState(false);
@@ -160,6 +162,14 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
           </svg>
           <span className="arbre-btn-label-optional">Recadrer</span>
         </button>
+        {onSheet && (
+          <button type="button" className="arbre-btn" onClick={onSheet} title="Voir la fiche de la personne au centre" aria-label="Fiche">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7" />
+            </svg>
+            <span className="arbre-btn-label-optional">Fiche</span>
+          </button>
+        )}
         {onAdd && (
           <button
             type="button"

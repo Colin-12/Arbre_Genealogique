@@ -11,6 +11,10 @@ export type PersonRow = {
   death_date: string | null;
   death_precision: string | null;
   sibling_order: number | null;
+  birth_last_name: string | null;
+  birth_place: string | null;
+  death_place: string | null;
+  notes: string | null;
 };
 export type UnionRow = { id: string; partner_a: string; partner_b: string | null };
 export type FiliationRow = { child_id: string; union_id: string };
@@ -45,6 +49,11 @@ export function buildDatums(persons: PersonRow[], unions: UnionRow[], filiations
         birthday: partialDate(p.birth_date, p.birth_precision),
         deathday: partialDate(p.death_date, p.death_precision),
         sibling_order: p.sibling_order ?? undefined,
+        // Informations de la fiche (pas affichées sur les cartes)
+        "birth name": p.birth_last_name ?? "",
+        "birth place": p.birth_place ?? "",
+        "death place": p.death_place ?? "",
+        notes: p.notes ?? "",
       },
       rels: { parents: [], spouses: [], children: [] },
     });
@@ -117,7 +126,7 @@ export async function loadTreePeople(treeId: string): Promise<Datum[]> {
   const [persons, unions, filiations] = await Promise.all([
     supabase
       .from("persons")
-      .select("id, first_names, last_name, gender, birth_date, birth_precision, death_date, death_precision, sibling_order")
+      .select("id, first_names, last_name, gender, birth_date, birth_precision, death_date, death_precision, sibling_order, birth_last_name, birth_place, death_place, notes")
       .eq("tree_id", treeId)
       .is("deleted_at", null),
     supabase.from("unions").select("id, partner_a, partner_b").eq("tree_id", treeId),

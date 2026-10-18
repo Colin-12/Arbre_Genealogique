@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Datum } from "family-chart";
-import { buildPerson, toPartialInput, updatePerson } from "@/lib/editTree";
+import { NOTES_MAX, buildPerson, toPartialInput, updatePerson } from "@/lib/editTree";
 import { plainName } from "@/lib/navigation";
 import DateFields from "./DateFields";
 import Modal from "./Modal";
@@ -22,6 +22,10 @@ export default function EditPersonDialog({ person, onClose, onDone }: Props) {
   const [birth, setBirth] = useState(toPartialInput(person.data["birthday"]));
   const [deceased, setDeceased] = useState(Boolean(person.data["deathday"]));
   const [death, setDeath] = useState(toPartialInput(person.data["deathday"]));
+  const [birthName, setBirthName] = useState(String(person.data["birth name"] ?? ""));
+  const [birthPlace, setBirthPlace] = useState(String(person.data["birth place"] ?? ""));
+  const [deathPlace, setDeathPlace] = useState(String(person.data["death place"] ?? ""));
+  const [notes, setNotes] = useState(String(person.data["notes"] ?? ""));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +33,12 @@ export default function EditPersonDialog({ person, onClose, onDone }: Props) {
 
   async function submit() {
     setError(null);
-    const built = buildPerson(first, last, gender, birth, deceased, death);
+    const built = buildPerson(first, last, gender, birth, deceased, death, {
+      birthName,
+      birthPlace,
+      deathPlace: deceased ? deathPlace : "",
+      notes,
+    });
     if (typeof built === "string") return setError(built);
     setBusy(true);
     try {
@@ -75,12 +84,54 @@ export default function EditPersonDialog({ person, onClose, onDone }: Props) {
         </div>
       </fieldset>
 
+      <label className="arbre-label">
+        Nom de naissance (si différent)
+        <input className="arbre-field" value={birthName} autoComplete="off" onChange={(e) => setBirthName(e.target.value)} />
+      </label>
+
       <DateFields label="Naissance (facultatif, même partielle)" value={birth} onChange={setBirth} />
+
+      <label className="arbre-label">
+        Lieu de naissance
+        <input
+          className="arbre-field"
+          value={birthPlace}
+          autoComplete="off"
+          placeholder="Ville, pays"
+          onChange={(e) => setBirthPlace(e.target.value)}
+        />
+      </label>
 
       <label className="arbre-check">
         <input type="checkbox" checked={deceased} onChange={(e) => setDeceased(e.target.checked)} /> Décédé(e)
       </label>
-      {deceased && <DateFields label="Décès (facultatif, même partiel)" value={death} onChange={setDeath} />}
+      {deceased && (
+        <>
+          <DateFields label="Décès (facultatif, même partiel)" value={death} onChange={setDeath} />
+          <label className="arbre-label">
+            Lieu de décès
+            <input
+              className="arbre-field"
+              value={deathPlace}
+              autoComplete="off"
+              placeholder="Ville, pays"
+              onChange={(e) => setDeathPlace(e.target.value)}
+            />
+          </label>
+        </>
+      )}
+
+      <label className="arbre-label">
+        Commentaire général
+        <textarea
+          className="arbre-field arbre-textarea"
+          rows={5}
+          maxLength={NOTES_MAX}
+          value={notes}
+          placeholder="Métier, anecdotes, histoire de la personne..."
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </label>
 
       {error && (
         <div className="arbre-login-error" role="alert">

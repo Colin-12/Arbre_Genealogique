@@ -10,6 +10,7 @@ import { nextTrail, parentsOf, plainName } from "@/lib/navigation";
 import TreeNav from "./TreeNav";
 import AddPersonDialog from "./AddPersonDialog";
 import EditPersonDialog from "./EditPersonDialog";
+import PersonSheet from "./PersonSheet";
 import LinksDialog from "./LinksDialog";
 import DeletePersonDialog from "./DeletePersonDialog";
 import type { ManageAction } from "./TreeNav";
@@ -56,6 +57,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState<Relation | null>(null);
   const [managing, setManaging] = useState<ManageAction | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [notice, setNotice] = useState<{ text: string; undo?: () => Promise<void> } | null>(null);
 
   const isNarrow = () => (containerRef.current?.clientWidth ?? Infinity) < NARROW_PX;
@@ -194,8 +196,11 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
           .setCardDisplay([(d: Datum) => fullName(d), (d: Datum) => lifeLine(d)])
           .setCardDim({ w: CARD_W, h: CARD_H });
 
-        // Un clic sur une carte la place au centre et l'ajoute au fil d'Ariane
-        card.setOnCardClick((_e: MouseEvent, d: { data: { id: string } }) => goTo(d.data.id));
+        // Un clic sur une carte la place au centre ; un clic sur la carte déjà au centre ouvre sa fiche
+        card.setOnCardClick((_e: MouseEvent, d: { data: { id: string } }) => {
+          if (chart.getMainDatum()?.id === d.data.id) setSheetOpen(true);
+          else goTo(d.data.id);
+        });
 
         const startId = mainId ?? data[0]?.id ?? "";
         if (mainId) chart.updateMainId(mainId);
@@ -292,12 +297,26 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         onInitial={() => goTo(initialId, true)}
         onFit={refit}
         onSignOut={onSignOut}
+        onSheet={anchor ? () => setSheetOpen(true) : undefined}
         onAdd={canEdit && treeId && anchor ? setAdding : undefined}
         onManage={canEdit && treeId && anchor ? setManaging : undefined}
         canDelete={people.length > 1}
         searchPeople={people}
       />
       <div ref={containerRef} className="f3 arbre" />
+      {sheetOpen && anchor && (
+        <PersonSheet
+          person={anchor}
+          people={people}
+          canEdit={canEdit && Boolean(treeId)}
+          onClose={() => setSheetOpen(false)}
+          onGo={(id) => goTo(id)}
+          onEdit={() => {
+            setSheetOpen(false);
+            setManaging("edit");
+          }}
+        />
+      )}
       {adding && treeId && anchor && (
         <AddPersonDialog
           treeId={treeId}

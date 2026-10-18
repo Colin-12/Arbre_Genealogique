@@ -36,13 +36,26 @@ export function parsePartialDate(input: PartialInput, label: string): DbDate | s
   return { date: `${y}-${mm}-${String(day).padStart(2, "0")}`, precision: "day" };
 }
 
+/** Informations de la fiche (facultatives). Une chaîne vide efface la valeur. */
+export type PersonExtra = {
+  birthName: string;
+  birthPlace: string;
+  deathPlace: string;
+  notes: string;
+};
+
 export type NewPerson = {
   first: string;
   last: string;
   gender: "M" | "F";
   birth: DbDate;
   death: DbDate;
+  /** Absent à l'ajout : les champs de la fiche ne sont alors pas touchés. */
+  extra?: PersonExtra;
 };
+
+/** Longueur maximale du commentaire général. */
+export const NOTES_MAX = 4000;
 
 export type AddArgs = {
   treeId: string;
@@ -115,7 +128,8 @@ export function buildPerson(
   gender: "" | "M" | "F",
   birth: PartialInput,
   deceased: boolean,
-  death: PartialInput
+  death: PartialInput,
+  extra?: PersonExtra
 ): NewPerson | string {
   if (!first.trim() && !last.trim()) return "Il faut au moins un prénom ou un nom.";
   if (!gender) return "Indique si c'est un homme ou une femme.";
@@ -124,7 +138,8 @@ export function buildPerson(
   const d = deceased ? parsePartialDate(death, "Décès") : { date: null, precision: null };
   if (typeof d === "string") return d;
   if (b.date && d.date && d.date < b.date) return "La date de décès est antérieure à la date de naissance.";
-  return { first, last, gender, birth: b, death: d };
+  if (extra && extra.notes.length > NOTES_MAX) return `Le commentaire est trop long (${NOTES_MAX} caractères au plus).`;
+  return { first, last, gender, birth: b, death: d, extra };
 }
 
 /** Corrige les informations d'une personne. */
@@ -140,6 +155,12 @@ export async function updatePerson(id: string, p: NewPerson): Promise<void> {
       death_date: p.death.date,
       death_precision: p.death.precision,
       is_living: p.death.date ? false : null,
+      ...(p.extra && {
+        birth_last_name: p.extra.birthName.trim() || null,
+        birth_place: p.extra.birthPlace.trim() || null,
+        death_place: p.extra.deathPlace.trim() || null,
+        notes: p.extra.notes.trim() || null,
+      }),
     })
     .eq("id", id)
     .select("id");
