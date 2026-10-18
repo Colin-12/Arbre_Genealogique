@@ -1066,3 +1066,214 @@
     gap: 4px;
   }
 }
+
+/* ---------- Galerie de photos (voir PhotoGallery.tsx) ---------- */
+.arbre-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.arbre-gallery-thumb {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: 1px solid var(--nav-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ece6d8;
+  cursor: pointer;
+}
+.arbre-gallery-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.arbre-gallery-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+@media (min-width: 560px) {
+  .arbre-gallery-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Visionneuse : photo en haut, légende et personnes en dessous (à droite sur grand écran) */
+.arbre-viewer {
+  z-index: 80;
+  background: #14110b;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  cursor: default;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --nav-text: #2a2a2a;
+  --nav-muted: #6f6a5f;
+  --nav-border: #d9d2c3;
+  --nav-accent: #1f5f7a;
+}
+.arbre-viewer-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  color: #fff;
+}
+.arbre-viewer-close {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.arbre-viewer-stage {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  height: 44dvh;
+  padding: 0 8px;
+}
+.arbre-viewer-stage img {
+  max-width: 100%;
+  max-height: 100%;
+}
+.arbre-viewer-nav {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  width: 44px;
+  height: 56px;
+  margin-top: -28px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 32px;
+  line-height: 1;
+  cursor: pointer;
+}
+.arbre-viewer-nav.is-prev {
+  left: 10px;
+}
+.arbre-viewer-nav.is-next {
+  right: 10px;
+}
+.arbre-viewer-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 8px;
+  padding: 14px 16px 24px;
+  overflow-y: auto;
+  border-radius: 16px 16px 0 0;
+  background: #f7f4ee;
+  color: var(--nav-text);
+}
+.arbre-viewer-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.arbre-viewer-block .arbre-field {
+  margin-bottom: 0;
+}
+.arbre-viewer-label {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nav-muted);
+}
+.arbre-viewer-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.arbre-viewer-caption {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.4;
+}
+.arbre-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.arbre-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--nav-border);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 14px;
+}
+.arbre-chip-remove {
+  width: 26px;
+  height: 26px;
+  margin-right: -6px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--nav-muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.arbre-viewer-matches {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--nav-border);
+  border-radius: 8px;
+  background: #fff;
+}
+.arbre-viewer-matches button {
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+}
+@media (min-width: 900px) {
+  .arbre-viewer {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    grid-template-rows: auto 1fr;
+  }
+  .arbre-viewer-top {
+    grid-column: 1;
+  }
+  .arbre-viewer-stage {
+    grid-column: 1;
+    grid-row: 2;
+    height: auto;
+    min-height: 0;
+    padding: 0 16px 16px;
+  }
+  .arbre-viewer-panel {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    margin-top: 0;
+    border-radius: 0;
+  }
+}

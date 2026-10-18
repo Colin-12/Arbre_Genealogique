@@ -345,6 +345,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
           person={anchor}
           people={people}
           canEdit={canEdit && Boolean(treeId)}
+          role={role as Role | undefined}
           onClose={() => setSheetOpen(false)}
           onGo={(id) => goTo(id)}
           onPhotoChanged={() =>

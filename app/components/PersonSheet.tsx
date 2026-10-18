@@ -6,6 +6,8 @@ import { ageText, formatPartialDate } from "@/lib/dates";
 import { sortSiblings } from "@/lib/family";
 import { plainName } from "@/lib/navigation";
 import { removePersonPhoto, resizeToJpeg, setPersonPhoto } from "@/lib/photos";
+import type { Role } from "@/lib/sharing";
+import PhotoGallery from "./PhotoGallery";
 
 type Props = {
   treeId?: string;
@@ -13,6 +15,8 @@ type Props = {
   people: Datum[];
   /** Vrai pour les propriétaires et éditeurs : affiche "Modifier". */
   canEdit: boolean;
+  /** Rôle de la personne connectée : décide qui peut ajouter des photos ou écrire des légendes. */
+  role?: Role;
   onEdit: () => void;
   onClose: () => void;
   /** Un clic sur un proche le place au centre de l'arbre (la fiche suit). */
@@ -55,7 +59,7 @@ function Relatives({ title, list, onGo }: { title: string; list: Datum[]; onGo: 
 }
 
 /** Fiche d'une personne : dates, lieux, âge, proches et commentaire général. */
-export default function PersonSheet({ treeId, person, people, canEdit, onEdit, onClose, onGo, onPhotoChanged }: Props) {
+export default function PersonSheet({ treeId, person, people, canEdit, role, onEdit, onClose, onGo, onPhotoChanged }: Props) {
   const titleId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -225,6 +229,8 @@ export default function PersonSheet({ treeId, person, people, canEdit, onEdit, o
             <p className="arbre-sheet-notes">{notes}</p>
           </section>
         )}
+
+        {treeId && <PhotoGallery key={person.id} treeId={treeId} personId={person.id} people={people} role={role} />}
 
         {empty && (
           <p className="arbre-hint">

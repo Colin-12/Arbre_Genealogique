@@ -61,8 +61,8 @@ async function loadBitmap(file: File): Promise<{ source: CanvasImageSource; widt
   }
 }
 
-/** Réduit la photo (900 px au plus) et la convertit en JPEG léger (environ 100 Ko). */
-export async function resizeToJpeg(file: File): Promise<Blob> {
+/** Réduit la photo (900 px au plus par défaut) et la convertit en JPEG léger. */
+export async function resizeToJpeg(file: File, maxSide: number = MAX_SIDE): Promise<Blob> {
   if (!file.type.startsWith("image/")) throw new Error("Ce fichier n'est pas une image.");
   if (file.size > MAX_INPUT_BYTES) throw new Error("Cette image est trop lourde (30 Mo au plus).");
   let bmp;
@@ -72,7 +72,7 @@ export async function resizeToJpeg(file: File): Promise<Blob> {
     throw new Error("Impossible de lire cette image (format non pris en charge ?).");
   }
   try {
-    const ratio = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+    const ratio = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
     const w = Math.max(1, Math.round(bmp.width * ratio));
     const h = Math.max(1, Math.round(bmp.height * ratio));
     const canvas = document.createElement("canvas");
