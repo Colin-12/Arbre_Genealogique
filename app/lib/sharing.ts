@@ -147,19 +147,22 @@ function clearJoinToken(): void {
 
 /**
  * Après connexion : rejoint l'arbre d'un lien de partage (s'il y en a un) et accepte les invitations
- * faites à l'adresse du compte. Retourne un message d'information à afficher, ou null.
+ * faites à l'adresse du compte. Retourne un message d'erreur éventuel, et si l'on vient de rejoindre au moins un arbre.
  */
-export async function joinPendingTrees(): Promise<string | null> {
+export async function joinPendingTrees(): Promise<{ notice: string | null; joined: boolean }> {
   let notice: string | null = null;
+  let joined = false;
   const token = pendingJoinToken();
   if (token) {
     const { error } = await supabase.rpc("join_with_link", { p_token: token });
     clearJoinToken();
     if (error) notice = error.message;
+    else joined = true;
   }
-  const { error: inviteError } = await supabase.rpc("accept_my_invitations");
+  const { data, error: inviteError } = await supabase.rpc("accept_my_invitations");
   if (inviteError && !notice) notice = inviteError.message;
-  return notice;
+  if (!inviteError && typeof data === "number" && data > 0) joined = true;
+  return { notice, joined };
 }
 
 /** Traduit les refus d'inscription (adresse non invitée) en message clair. */

@@ -1,118 +1,67 @@
-# Arbre (nom provisoire)
+# Arbre généalogique
 
-Application web collaborative pour construire des arbres généalogiques en famille. Accessible depuis un téléphone ou un ordinateur, avec des projets (arbres) partageables et des droits façon Google Docs.
+Un arbre généalogique que toute la famille peut consulter et compléter depuis son téléphone. Je l'ai commencé parce que les arbres de la famille existent en ce moment sous forme de photos de feuilles, de PDF qui circulent et de souvenirs de chacun, et que personne ne sait quelle version est la bonne. L'idée est d'avoir un seul endroit, privé, où chacun ajoute ce qu'il sait.
 
-Projet loisir, pensé d'abord pour la famille, avec la possibilité d'être ouvert plus tard à d'autres (instances).
+C'est un projet perso, fait à mon rythme et testé surtout sur mon téléphone et celui de mes proches. Ce n'est pas un produit fini.
 
-## Vision
+## Ce que ça fait aujourd'hui
 
-- Un utilisateur crée un **arbre** (projet) et en devient automatiquement propriétaire.
-- Il invite d'autres personnes par **email** ou par **lien de partage**, avec un rôle.
-- On ajoute des personnes (nom, prénoms, parents, enfants, conjoints) et l'arbre se construit et se réorganise automatiquement.
-- Au fil du temps, on enrichit les fiches : dates de naissance et de décès, lieux, notes, photos.
-- L'âge est calculé automatiquement. Les enfants d'un même couple sont classés de gauche à droite, du plus âgé au plus jeune.
-- Plus tard : arbres communicants (correspondances entre deux projets, avec accord des deux propriétaires).
+On se connecte avec son adresse e-mail (un lien arrive dans la boîte, pas de mot de passe). On tombe sur l'arbre, centré sur une personne, et on navigue de proche en proche : un clic sur une carte recentre la vue, un bouton remonte vers les parents, la recherche retrouve quelqu'un par son nom sans se soucier des accents.
 
-## Principes de conception
+Chaque personne a une fiche avec ses dates (complètes ou partielles : on peut ne connaître que l'année, ou le mois), ses lieux, son nom de naissance, un commentaire, une photo de profil et une galerie. Sur une photo on indique qui apparaît, et elle s'affiche dans la fiche de chacun. L'âge est calculé tout seul (« environ 76 ans » quand seule l'année de naissance est connue), et les frères et sœurs sont toujours classés du plus âgé au plus jeune.
 
-1. **Une généalogie est un graphe, pas un arbre strict.** Remariages, demi-frères et soeurs, parents inconnus, adoptions : le modèle doit les accepter dès le départ.
-2. **Les dates sont souvent incomplètes.** On stocke une date et une précision (jour, mois, année, "vers").
-3. **Le rendu d'abord.** On valide l'affichage avec de fausses données avant de construire le reste.
-4. **Pas de doublons à la saisie.** Suggestions pendant la frappe (recherche tolérante aux accents et aux fautes), avec le contexte (année de naissance, parents) pour distinguer les homonymes. Une sortie "Créer une nouvelle personne" reste toujours visible.
-5. **Chaque arbre est cloisonné.** Chaque personne a un identifiant stable (UUID), ce qui prépare les arbres communicants sans rien casser.
-6. **Vie privée.** Des données sur des personnes vivantes sont stockées : visibilité réduite pour les lecteurs, suppression possible, RGPD si l'app s'ouvre à d'autres.
+Pour modifier l'arbre, on ajoute un enfant, un conjoint ou un parent à partir d'une personne existante. L'appli propose les personnes déjà saisies pour éviter les doublons. On peut aussi retirer un lien, corriger une erreur ou supprimer quelqu'un (et le rétablir juste après si on s'est trompé).
 
-## Rôles
+Plusieurs arbres peuvent coexister, chacun avec ses membres. Le propriétaire d'un arbre invite ses proches par e-mail avec un rôle : éditeur, commentateur (peut seulement écrire des légendes) ou lecteur. L'invité reçoit un lien, clique dessus, et se retrouve dans l'arbre. Quand on crée un arbre, l'appli prévient si un autre contient déjà les mêmes personnes, pour éviter que deux cousins montent chacun leur version de la même famille.
 
-| Rôle | Lire | Modifier les personnes | Commenter | Gérer membres et partage | Supprimer l'arbre |
-|---|---|---|---|---|---|
-| owner | oui | oui | oui | oui | oui |
-| editor | oui | oui | oui | non | non |
-| commenter | oui | non | oui | non | non |
-| viewer | oui | non | non | non | non |
+L'appli s'installe sur l'écran d'accueil du téléphone (« Ajouter à l'écran d'accueil »), sans passer par un magasin d'applications.
 
-Le créateur d'un arbre est owner automatiquement. Un lien de partage porte un rôle (jamais owner), peut expirer et être révoqué.
+## Comment c'est fait
 
-## Stack envisagée
+- Next.js (App Router) et React pour l'interface, en TypeScript.
+- [family-chart](https://github.com/donatso/family-chart) pour dessiner l'arbre. Je lui fournis les personnes, les couples et les filiations, il s'occupe de la mise en page.
+- Supabase pour tout le reste : base PostgreSQL, connexion par lien magique, stockage des photos.
+- Vercel pour l'hébergement, avec un déploiement automatique à chaque push sur `main`.
 
-- **Front** : Next.js (React), responsive, PWA pour un usage mobile.
-- **Affichage de l'arbre** : [family-chart](https://github.com/donatso/family-chart) (basé sur D3) pour démarrer. Alternatives : React Flow avec dagre ou ELK, Topola.
-- **Base de données** : PostgreSQL. Extensions `pg_trgm` (recherche tolérante) et `unaccent`.
-- **Auth, emails d'invitation, droits** : Supabase (auth + row level security), ou Django / FastAPI si tu préfères un backend classique.
-- **Déploiement** : Vercel + Supabase au départ. Docker pour les futures instances auto-hébergées.
-
-## Feuille de route
-
-Chaque étape produit quelque chose de visible.
-
-### Étape 0 : cadrage (ici)
-- [ ] Dessiner sur papier un morceau de la vraie famille, avec les cas difficiles
-- [ ] Choisir le nom du projet
-
-### Étape 1 : le rendu avec de fausses données
-- [ ] Afficher `data/sample_family.json` avec family-chart
-- [ ] Vérifier les cas de test (voir plus bas)
-- [ ] Régler le style : couleurs, cartes, zoom, déplacement, mobile
-- [ ] Tri des fratries : par date de naissance, repli sur un ordre manuel
-- [ ] Contexte de la vue : bandeau "Vue centrée sur ...", fil d'Ariane des personnes visitées
-- [ ] Navigation : boutons "Vue d'ensemble", "Remonter d'un niveau", "Revenir au départ"
-
-### Étape 2 : la base de données
-- [ ] Appliquer `db/schema.sql`
-- [ ] Remplacer le JSON par des requêtes, sans changer l'affichage
-
-### Étape 3 : ajout et édition de personnes
-- [ ] Formulaire d'ajout (parents, enfants, conjoints)
-- [ ] Autocomplétion anti-doublons (`suggest_persons`)
-- [ ] Fiche personne : dates, lieux, notes, âge calculé
-
-### Étape 4 : comptes et collaboration
-- [ ] Inscription, connexion
-- [ ] Création d'un arbre, propriétaire automatique
-- [ ] Invitations par email, liens de partage, rôles
-- [ ] Journal des modifications (qui a changé quoi) et annulation
-
-### Étape 5 : confort
-- [ ] Import et export GEDCOM
-- [ ] Photos
-- [ ] Recherche globale
-- [ ] Outil de fusion manuelle des doublons
-- [ ] Masquage des informations des personnes vivantes pour les lecteurs
-
-### Étape 6 : avancé
-- [ ] Arbres communicants : l'app propose des correspondances avec un score, jamais de fusion automatique, accord des deux propriétaires, lien réversible
-- [ ] Instances auto-hébergées (Docker)
-
-## Cas de test du jeu de données
-
-`data/sample_family.json` contient 21 personnes d'une famille fictive, construites pour éprouver l'affichage :
-
-- **Remariage** : Pierre Martin a deux conjointes (Claire, puis Sophie).
-- **Demi-frère ou demi-soeur** : Emma est la fille de Pierre et Sophie, et la demi-soeur de Thomas, Julie et Mathieu.
-- **Parent inconnu** : Hugo (père Luc, mère inconnue) et Inès (mère Léa, père inconnu).
-- **Date de naissance manquante** : Mathieu, pour tester le repli sur l'ordre manuel.
-- **Fratrie volontairement désordonnée dans les données** : les enfants de Pierre et Claire sont listés dans le désordre, l'affichage doit les classer du plus âgé au plus jeune.
-- **Personnes décédées** : Joseph Martin et Henri Dubois.
-- **Quatre générations** : pour tester la lisibilité sur un téléphone.
-
-Remarque : le format suit la convention de family-chart (`rels.parents`, `rels.spouses`, `rels.children`, `data`). Selon la version de la bibliothèque, les noms des champs de `data` peuvent demander un petit ajustement.
-
-## Structure du dépôt (proposée)
+Les dossiers :
 
 ```
-.
-├── README.md
-├── data/
-│   └── sample_family.json
-├── db/
-│   └── schema.sql
-└── app/            (à créer à l'étape 1)
+app/    l'application web (c'est ce que Vercel déploie)
+db/     le schéma de la base, puis les migrations numérotées
+data/   un petit arbre d'exemple en JSON
 ```
 
-## Questions ouvertes
+Une règle que je me suis donnée : tout ce qui touche aux droits se règle dans la base, pas dans l'interface. Les tables sont protégées par des règles d'accès au niveau des lignes (RLS), et les opérations sensibles (inviter, retirer un membre, créer un arbre, ajouter une photo) passent par des fonctions SQL qui vérifient elles-mêmes le rôle de la personne. Masquer un bouton n'a jamais suffi à protéger quoi que ce soit. Les photos sont dans un stockage privé, et l'application demande des adresses temporaires pour les afficher.
 
-- Nom du projet ?
-- Les personnes vivantes sont-elles masquées par défaut pour les lecteurs ?
-- Un utilisateur peut-il être rattaché à sa propre fiche dans un arbre (bouton "c'est moi") ?
-- Photos : stockage où, et quelle taille maximale ?
-- Langues : français uniquement au départ ?
+Les limites (3 arbres par personne, 500 personnes par arbre, 200 photos par arbre) sont des valeurs en base. Elles empêchent qu'un inconnu ne remplisse la base gratuite, et se changent sans toucher au code. Les inscriptions sont ouvertes par défaut ; un réglage dans la table `app_settings` permet de les refermer si besoin.
+
+## Le faire tourner chez soi
+
+Il faut un compte Supabase (l'offre gratuite suffit) et Node.js.
+
+1. Créer un projet Supabase, puis lancer dans l'éditeur SQL, dans cet ordre : `db/schema.sql`, puis `db/002_auth_and_seed.sql` jusqu'à `db/009_multi_trees.sql`.
+2. Dans Authentication, onglet URL Configuration, mettre l'adresse du site (et `http://localhost:3000/**` pour le développement) dans les URL de redirection.
+3. Créer `app/.env.local` avec deux variables : `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Ce sont les valeurs de Settings, API, dans Supabase. La clé « anon » peut être publique ; la clé `service_role`, elle, ne doit jamais se retrouver dans le dépôt ni dans l'application.
+4. Puis :
+
+```bash
+cd app
+npm install
+npm run dev
+```
+
+Pour déployer sur Vercel, importer le dépôt, indiquer `app` comme dossier racine et recopier les deux variables d'environnement.
+
+Détail pratique : le service e-mail intégré de Supabase limite très vite le nombre de liens envoyés. Dès qu'on invite plusieurs personnes, il vaut mieux brancher son propre SMTP (j'utilise un compte Gmail avec un mot de passe d'application, dans Authentication, SMTP Settings). Et il vaut mieux traduire les modèles d'e-mail, sinon les invités reçoivent un message en anglais.
+
+## Ce qui manque
+
+- Un moyen de supprimer un arbre, et de quitter un arbre dont on n'est pas propriétaire (la fonction existe côté base, pas encore le bouton).
+- Une liste des personnes qui ne sont pas visibles depuis la vue actuelle. Aujourd'hui, les parents d'un conjoint existent bien dans l'arbre mais n'apparaissent que si on se recentre sur lui.
+- Un rendu neutre pour les personnes dont le sexe est inconnu : la bibliothèque de dessin ne connaît que homme et femme.
+- Rapprocher deux arbres qui se recoupent, quand deux branches de la famille se rejoignent.
+- Les commentaires sur les fiches et un historique des modifications.
+
+## Un mot sur les données
+
+Un arbre généalogique contient des informations sur des personnes, dont certaines sont vivantes. Les arbres sont privés, accessibles uniquement sur invitation, et l'appli n'est pas référencée par les moteurs de recherche. Si vous l'installez pour votre famille, pensez à demander l'accord des personnes dont vous saisissez la date de naissance ou la photo.

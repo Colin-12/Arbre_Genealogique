@@ -91,37 +91,6 @@ export function buildDatums(persons: PersonRow[], unions: UnionRow[], filiations
   return [...byId.values()];
 }
 
-export type TreeMeta = {
-  id: string;
-  name: string;
-  /** owner, editor, commenter ou viewer */
-  role: string;
-  /** Compte pour lequel ces informations ont été chargées. */
-  userId: string;
-};
-
-/**
- * Retrouve le premier arbre auquel l'utilisateur connecté a accès, et son rôle dans cet arbre.
- * La base ne renvoie que ce que les règles de sécurité (RLS) autorisent.
- */
-export async function loadMyTreeMeta(userId: string): Promise<TreeMeta> {
-  const { data: trees, error } = await supabase
-    .from("trees")
-    .select("id, name")
-    .order("created_at", { ascending: true })
-    .limit(1);
-  if (error) throw new Error(error.message);
-  const tree = trees?.[0];
-  if (!tree) {
-    throw new Error(
-      "Aucun arbre n'est associé à ce compte. Demande une invitation au propriétaire de l'arbre, puis reconnecte-toi avec l'adresse invitée."
-    );
-  }
-  const { data: role, error: roleError } = await supabase.rpc("my_role", { p_tree: tree.id });
-  if (roleError) throw new Error(roleError.message);
-  return { id: tree.id, name: tree.name, role: String(role ?? "viewer"), userId };
-}
-
 /**
  * Charge toutes les personnes d'un arbre, au format de family-chart.
  * Note : Supabase renvoie au plus 1000 lignes par requête ; la pagination viendra avec les grands arbres.

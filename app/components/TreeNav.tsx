@@ -21,8 +21,11 @@ type Props = {
   onGo: (id: string) => void;
   onInitial: () => void;
   onFit: () => void;
-  /** Si fournie, affiche un lien "Se déconnecter" dans le bandeau de contexte. */
+  /** Si fournie, affiche un lien "Se déconnecter" dans le bandeau de contexte (sauf si onTrees est fournie). */
   onSignOut?: () => void;
+  /** Si fournie, affiche le nom de l'arbre : un clic ouvre "Mes arbres" (changer d'arbre, en créer un, se déconnecter). */
+  onTrees?: () => void;
+  treeName?: string;
   /** Si fournie, affiche le bouton "Partager" (propriétaire : invitations et membres). */
   onShare?: () => void;
   /** Rôle de la personne connectée (affiché quand elle ne peut pas modifier). */
@@ -45,7 +48,7 @@ type MenuName = "parents" | "add" | "manage" | null;
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onShare, roleLabel, onSheet, onAdd, onManage, canDelete = true, searchPeople }: Props) {
+export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onTrees, treeName, onShare, roleLabel, onSheet, onAdd, onManage, canDelete = true, searchPeople }: Props) {
   const [menu, setMenu] = useState<MenuName>(null);
   // Téléphone : la recherche est repliée derrière une loupe (sur ordinateur, elle est toujours visible)
   const [searchOpen, setSearchOpen] = useState(false);
@@ -100,10 +103,17 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
                 {searchOpen ? "Fermer" : "Rechercher"}
               </button>
             )}
-            {onSignOut && (
-              <button type="button" className="arbre-link" onClick={onSignOut}>
-                Se déconnecter
+            {onTrees ? (
+              <button type="button" className="arbre-link arbre-tree-switch" onClick={onTrees} aria-label={`Mes arbres (arbre ouvert : ${treeName ?? ""})`}>
+                <span className="arbre-tree-switch-name">{treeName || "Mes arbres"}</span>
+                <span aria-hidden="true"> ▾</span>
               </button>
+            ) : (
+              onSignOut && (
+                <button type="button" className="arbre-link" onClick={onSignOut}>
+                  Se déconnecter
+                </button>
+              )
             )}
           </span>
         </div>

@@ -4,7 +4,10 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import FamilyTree from "./FamilyTree";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
-import { loadMyTreeMeta, loadTreePeople, type TreeMeta } from "@/lib/loadTree";
+import { loadTreePeople } from "@/lib/loadTree";
+import { listMyTrees, pickTree, storeTreeChoice, type MyTree } from "@/lib/trees";
+import CreateTreeDialog from "./CreateTreeDialog";
+import TreesDialog from "./TreesDialog";
 import { friendlyLoginError, joinPendingTrees, pendingJoinToken, stashJoinToken } from "@/lib/sharing";
 
 type Status = "idle" | "sending" | "sent" | "error";
@@ -13,8 +16,11 @@ type Status = "idle" | "sending" | "sent" | "error";
 export default function TreeApp() {
   // undefined = on ne sait pas encore (lecture de la session sauvegardée dans le navigateur)
   const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const [meta, setMeta] = useState<TreeMeta | null>(null);
+  // Arbres de la personne connectée (du plus récemment rejoint au plus ancien) et arbre ouvert
+  const [trees, setTrees] = useState<MyTree[] | null>(null);
+  const [currentId, setCurrentId] = useState<string | undefined>(undefined);
   const [metaError, setMetaError] = useState<string | null>(null);
+  const [dialog, setDialog] = useState<"trees" | "create" | null>(null);
 
   // Lien d'invitation (?join=...) : on garde le jeton de côté, le temps de se connecter
   useEffect(() => {
@@ -24,25 +30,34 @@ export default function TreeApp() {
   useEffect(() => {
     if (!supabaseConfigured) return;
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    const { data } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (!s) {
+        // Déconnexion : on oublie les arbres du compte précédent
+        setTrees(null);
+        setCurrentId(undefined);
+        setMetaError(null);
+      }
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 
-  // Arbre du compte connecté (et rôle dans cet arbre)
   const userId = session?.user.id;
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
     (async () => {
-      // Rejoint l'arbre d'un lien de partage et accepte les invitations faites à cette adresse
-      const joinNotice = await joinPendingTrees().catch(() => null);
+      // Accepte les invitations faites à cette adresse (et le lien de partage éventuel), puis liste les arbres
+      const join = await joinPendingTrees().catch(() => ({ notice: null as string | null, joined: false }));
       try {
-        const m = await loadMyTreeMeta(userId);
-        if (!cancelled) setMeta(m);
+        const list = await listMyTrees();
+        if (cancelled) return;
+        setTrees(list);
+        setCurrentId(pickTree(list, userId, join.joined)?.id);
       } catch (e) {
         if (cancelled) return;
         const base = e instanceof Error ? e.message : String(e);
-        setMetaError(joinNotice ? `${joinNotice} ${base}` : base);
+        setMetaError(join.notice ? `${join.notice} ${base}` : base);
       }
     })();
     return () => {
@@ -50,8 +65,25 @@ export default function TreeApp() {
     };
   }, [userId]);
 
-  const treeId = meta?.userId === userId ? meta?.id : undefined;
+  const meta = trees?.find((t) => t.id === currentId);
+  const treeId = meta?.id;
   const loadData = useCallback(() => loadTreePeople(treeId ?? ""), [treeId]);
+
+  function switchTo(id: string) {
+    if (userId) storeTreeChoice(userId, id);
+    setCurrentId(id);
+    setDialog(null);
+  }
+
+  async function onCreated(id: string) {
+    try {
+      const list = await listMyTrees();
+      setTrees(list);
+    } catch {
+      // la liste se rechargera à la prochaine ouverture
+    }
+    switchTo(id);
+  }
 
   if (!supabaseConfigured) {
     return (
@@ -75,18 +107,59 @@ export default function TreeApp() {
       </Notice>
     );
   }
-  if (!treeId || !meta) return <div className="arbre-login" aria-busy="true" />;
+  if (trees === null) return <div className="arbre-login" aria-busy="true" />;
+
+  const dialogs = (
+    <>
+      {dialog === "trees" && (
+        <TreesDialog
+          trees={trees}
+          currentId={currentId}
+          onSwitch={switchTo}
+          onCreate={() => setDialog("create")}
+          onSignOut={() => supabase.auth.signOut()}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "create" && <CreateTreeDialog onCreated={onCreated} onClose={() => setDialog(trees.length > 0 ? "trees" : null)} />}
+    </>
+  );
+
+  // Compte sans arbre : on propose d'en créer un, ou d'attendre une invitation
+  if (!treeId || !meta) {
+    return (
+      <>
+        <Notice title="Bienvenue">
+          <p>Tu n&apos;as pas encore d&apos;arbre. Tu peux créer le tien, ou attendre l&apos;invitation d&apos;un proche : elle te donnera accès à son arbre dès que tu te connectes avec cette adresse.</p>
+          <div className="arbre-share-actions">
+            <button type="button" className="arbre-btn arbre-btn-accent" onClick={() => setDialog("create")}>
+              Créer mon arbre
+            </button>
+            <button type="button" className="arbre-link" onClick={() => supabase.auth.signOut()}>
+              Se déconnecter
+            </button>
+          </div>
+        </Notice>
+        {dialogs}
+      </>
+    );
+  }
 
   return (
-    <FamilyTree
-      loadData={loadData}
-      treeId={treeId}
-      canEdit={meta.role === "owner" || meta.role === "editor"}
-      role={meta.role}
-      treeName={meta.name}
-      userId={meta.userId}
-      onSignOut={() => supabase.auth.signOut()}
-    />
+    <>
+      <FamilyTree
+        key={treeId}
+        loadData={loadData}
+        treeId={treeId}
+        canEdit={meta.role === "owner" || meta.role === "editor"}
+        role={meta.role}
+        treeName={meta.name}
+        userId={userId}
+        onTrees={() => setDialog("trees")}
+        onSignOut={() => supabase.auth.signOut()}
+      />
+      {dialogs}
+    </>
   );
 }
 

@@ -44,6 +44,8 @@ type Props = {
   dataUrl?: string;
   /** Si fournie, affiche "Se déconnecter" dans le bandeau. */
   onSignOut?: () => void;
+  /** Ouvre "Mes arbres" (changer d'arbre, en créer un). */
+  onTrees?: () => void;
   /** Arbre affiché et droit de modification : active le bouton "Ajouter". */
   treeId?: string;
   canEdit?: boolean;
@@ -55,7 +57,7 @@ type Props = {
   mainId?: string;
 };
 
-export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", onSignOut, treeId, canEdit = false, role, treeName, userId, mainId }: Props) {
+export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", onSignOut, onTrees, treeId, canEdit = false, role, treeName, userId, mainId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ChartInstance | null>(null);
   const f3Ref = useRef<F3 | null>(null);
@@ -327,6 +329,8 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         onInitial={() => goTo(initialId, true)}
         onFit={refit}
         onSignOut={onSignOut}
+        onTrees={onTrees}
+        treeName={treeName}
         onSheet={anchor ? () => setSheetOpen(true) : undefined}
         onShare={role === "owner" && treeId && userId ? () => setSharing(true) : undefined}
         roleLabel={role && !canEdit ? (ROLE_LABEL[role as Role] ?? role) : undefined}

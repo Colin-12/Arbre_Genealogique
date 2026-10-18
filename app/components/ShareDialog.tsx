@@ -65,10 +65,14 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
   }, [treeId]);
 
   useEffect(() => {
-    refresh().catch((e) => {
-      setError(e instanceof Error ? e.message : String(e));
-      setLoaded(true);
-    });
+    (async () => {
+      try {
+        await refresh();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        setLoaded(true);
+      }
+    })();
   }, [refresh]);
 
   useEffect(() => {
