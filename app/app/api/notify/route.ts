@@ -3,8 +3,9 @@ import nodemailer from "nodemailer";
 import webpush from "web-push";
 
 /**
- * Appelée par la base de données (Supabase) quand quelqu'un demande l'accès à un arbre.
- * Envoie un e-mail et une notification sur le téléphone aux propriétaires de l'arbre.
+ * Appelée par la base de données (Supabase) : quand quelqu'un demande l'accès à un arbre (message pour les
+ * propriétaires), et quand une demande est acceptée (message pour le demandeur).
+ * Envoie un e-mail et une notification sur le téléphone.
  *
  * Protégée par un secret partagé (en-tête x-notify-secret) : sans lui, personne ne peut faire envoyer de message.
  * Variables d'environnement (à renseigner dans Vercel, jamais dans le dépôt) :
@@ -14,7 +15,10 @@ import webpush from "web-push";
 
 type Recipient = { email: string };
 type Subscription = { endpoint: string; keys: { p256dh: string; auth: string } };
+type Kind = "access_request" | "access_approved";
 type Payload = {
+  kind: Kind;
+  role: string;
   treeName: string;
   requesterName: string;
   requesterEmail: string;
@@ -22,6 +26,8 @@ type Payload = {
   recipients: Recipient[];
   subscriptions: Subscription[];
 };
+
+const ROLE_LABEL: Record<string, string> = { editor: "d'éditeur", commenter: "de commentateur", viewer: "de lecteur" };
 
 const EMAIL = /^[^\s@<>,;()]+@[^\s@<>,;()]+\.[^\s@<>,;()]{2,}$/;
 
@@ -45,7 +51,7 @@ function secretMatches(received: string | null, expected: string): boolean {
 function parse(body: unknown): Payload | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;
-  if (b.kind !== "access_request") return null;
+  if (b.kind !== "access_request" && b.kind !== "access_approved") return null;
 
   const recipients: Recipient[] = [];
   if (Array.isArray(b.recipients)) {
@@ -67,6 +73,8 @@ function parse(body: unknown): Payload | null {
     }
   }
   return {
+    kind: b.kind,
+    role: ROLE_LABEL[clean(b.role, 20)] ?? "",
     treeName: clean(b.tree_name, 100) || "l'arbre",
     requesterName: clean(b.requester_name, 100) || "Quelqu'un",
     requesterEmail: clean(b.requester_email, 200),
@@ -76,17 +84,7 @@ function parse(body: unknown): Payload | null {
   };
 }
 
-async function sendEmails(p: Payload, appUrl: string): Promise<{ sent: number; failed: number }> {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!user || !pass || p.recipients.length === 0) return { sent: 0, failed: 0 };
-
-  const host = process.env.SMTP_HOST; // réservé aux tests : un serveur SMTP local
-  const port = Number(process.env.SMTP_PORT ?? 465);
-  const transport = nodemailer.createTransport(
-    host ? { host, port, secure: false, ignoreTLS: true, auth: { user, pass } } : { host: "smtp.gmail.com", port: 465, secure: true, auth: { user, pass } }
-  );
-
+function requestMail(p: Payload, appUrl: string) {
   const who = p.requesterEmail ? `${p.requesterName} (${p.requesterEmail})` : p.requesterName;
   const subject = `Demande d'accès à « ${p.treeName} »`;
   const text = [
@@ -104,6 +102,40 @@ async function sendEmails(p: Payload, appUrl: string): Promise<{ sent: number; f
     (p.message ? `<p>Son message : « ${escapeHtml(p.message)} »</p>` : "") +
     `<p>Pour répondre, ouvre l'appli, touche « Inviter » puis « Demandes d'accès » :</p>` +
     `<p><a href="${escapeHtml(appUrl)}">Ouvrir l'arbre généalogique</a></p>`;
+  return { subject, text, html };
+}
+
+function approvedMail(p: Payload, appUrl: string) {
+  const role = p.role ? ` Tu y as le rôle ${p.role}.` : "";
+  const subject = `Ta demande est acceptée : « ${p.treeName} »`;
+  const text = [
+    "Bonjour,",
+    "",
+    `Bonne nouvelle : ta demande pour rejoindre l'arbre « ${p.treeName} » a été acceptée.${role}`,
+    "",
+    "Pour l'ouvrir, va sur l'appli et connecte-toi avec cette adresse e-mail :",
+    appUrl,
+  ].join("\n");
+  const html =
+    `<p>Bonjour,</p>` +
+    `<p>Bonne nouvelle : ta demande pour rejoindre l'arbre « ${escapeHtml(p.treeName)} » a été acceptée.${escapeHtml(role)}</p>` +
+    `<p>Pour l'ouvrir, va sur l'appli et connecte-toi avec cette adresse e-mail :</p>` +
+    `<p><a href="${escapeHtml(appUrl)}">Ouvrir l'arbre généalogique</a></p>`;
+  return { subject, text, html };
+}
+
+async function sendEmails(p: Payload, appUrl: string): Promise<{ sent: number; failed: number }> {
+  const user = process.env.GMAIL_USER;
+  const pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass || p.recipients.length === 0) return { sent: 0, failed: 0 };
+
+  const host = process.env.SMTP_HOST; // réservé aux tests : un serveur SMTP local
+  const port = Number(process.env.SMTP_PORT ?? 465);
+  const transport = nodemailer.createTransport(
+    host ? { host, port, secure: false, ignoreTLS: true, auth: { user, pass } } : { host: "smtp.gmail.com", port: 465, secure: true, auth: { user, pass } }
+  );
+
+  const { subject, text, html } = p.kind === "access_approved" ? approvedMail(p, appUrl) : requestMail(p, appUrl);
 
   const results = await Promise.allSettled(
     p.recipients.map((r) => transport.sendMail({ from: `Arbre généalogique <${user}>`, to: r.email, subject, text, html }))
@@ -119,12 +151,11 @@ async function sendPushes(p: Payload, appUrl: string): Promise<{ sent: number; f
   if (!publicKey || !privateKey || p.subscriptions.length === 0) return { sent: 0, failed: 0 };
 
   const subject = process.env.VAPID_SUBJECT || `mailto:${process.env.GMAIL_USER ?? "contact@example.com"}`;
-  const body = JSON.stringify({
-    title: "Demande d'accès",
-    body: `${p.requesterName} veut rejoindre « ${p.treeName} »`,
-    url: appUrl,
-    tag: "access-request",
-  });
+  const body = JSON.stringify(
+    p.kind === "access_approved"
+      ? { title: "Demande acceptée", body: `Tu as maintenant accès à « ${p.treeName} »`, url: appUrl, tag: "access-approved" }
+      : { title: "Demande d'accès", body: `${p.requesterName} veut rejoindre « ${p.treeName} »`, url: appUrl, tag: "access-request" }
+  );
   const results = await Promise.allSettled(
     p.subscriptions.map((s) => webpush.sendNotification(s, body, { vapidDetails: { subject, publicKey, privateKey }, TTL: 3 * 24 * 3600 }))
   );

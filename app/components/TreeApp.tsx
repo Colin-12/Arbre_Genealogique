@@ -7,6 +7,7 @@ import { supabase, supabaseConfigured } from "@/lib/supabase";
 import { loadTreePeople } from "@/lib/loadTree";
 import { listMyTrees, pickTree, storeTreeChoice, type MyTree } from "@/lib/trees";
 import CreateTreeDialog from "./CreateTreeDialog";
+import PushToggle from "./PushToggle";
 import TreesDialog from "./TreesDialog";
 import {
   clearAccessCode,
@@ -197,6 +198,13 @@ export default function TreeApp() {
               créer le tien.
             </p>
           )}
+          {requests.length > 0 && (
+            <PushToggle
+              offText="Reçois aussi une notification sur cet appareil dès que ta demande est acceptée."
+              onText="Les notifications sont activées sur cet appareil : tu seras prévenu dès que ta demande est acceptée."
+              fallback="Tu seras prévenu par e-mail."
+            />
+          )}
           <div className="arbre-share-actions">
             <button type="button" className="arbre-btn arbre-btn-accent" onClick={() => setDialog("create")}>
               Créer mon arbre
@@ -273,6 +281,11 @@ function AccessScreen({
         <p>
           Le propriétaire de <strong>{access.info.name}</strong> va recevoir ta demande. Dès qu&apos;il l&apos;aura acceptée, l&apos;arbre s&apos;ouvrira quand tu te connecteras avec cette adresse.
         </p>
+        <PushToggle
+          offText="Reçois aussi une notification sur cet appareil dès que ta demande est acceptée. Tu seras de toute façon prévenu par e-mail."
+          onText="Les notifications sont activées sur cet appareil : tu seras prévenu dès que ta demande est acceptée."
+          fallback="Tu seras prévenu par e-mail."
+        />
         <button type="button" className="arbre-btn arbre-btn-accent" onClick={onDone}>
           Continuer
         </button>
