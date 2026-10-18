@@ -295,6 +295,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         onAdd={canEdit && treeId && anchor ? setAdding : undefined}
         onManage={canEdit && treeId && anchor ? setManaging : undefined}
         canDelete={people.length > 1}
+        searchPeople={people}
       />
       <div ref={containerRef} className="f3 arbre" />
       {adding && treeId && anchor && (

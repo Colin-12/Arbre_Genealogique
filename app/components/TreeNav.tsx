@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import type { Datum } from "family-chart";
 import type { Relation } from "@/lib/editTree";
+import PersonSearch from "./PersonSearch";
 
 export type Crumb = { id: string; label: string };
 
@@ -27,6 +29,8 @@ type Props = {
   onManage?: (action: ManageAction) => void;
   /** Faux quand il ne reste qu'une personne : on ne peut plus supprimer. */
   canDelete?: boolean;
+  /** Si fournie, affiche la recherche (un choix appelle onGo). */
+  searchPeople?: Datum[];
 };
 
 export type ManageAction = "edit" | "links" | "delete";
@@ -35,8 +39,10 @@ type MenuName = "parents" | "add" | "manage" | null;
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onAdd, onManage, canDelete = true }: Props) {
+export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onAdd, onManage, canDelete = true, searchPeople }: Props) {
   const [menu, setMenu] = useState<MenuName>(null);
+  // Téléphone : la recherche est repliée derrière une loupe (sur ordinateur, elle est toujours visible)
+  const [searchOpen, setSearchOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
   const crumbsRef = useRef<HTMLDivElement>(null);
 
@@ -77,11 +83,23 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
       <div className="arbre-panel arbre-context">
         <div className="arbre-context-head">
           <span className="arbre-context-label">Vue centrée sur</span>
-          {onSignOut && (
-            <button type="button" className="arbre-link" onClick={onSignOut}>
-              Se déconnecter
-            </button>
-          )}
+          <span className="arbre-context-tools">
+            {searchPeople && (
+              <button
+                type="button"
+                className="arbre-link arbre-search-toggle"
+                aria-expanded={searchOpen}
+                onClick={() => setSearchOpen((o) => !o)}
+              >
+                {searchOpen ? "Fermer" : "Rechercher"}
+              </button>
+            )}
+            {onSignOut && (
+              <button type="button" className="arbre-link" onClick={onSignOut}>
+                Se déconnecter
+              </button>
+            )}
+          </span>
         </div>
         <div className="arbre-crumbs" aria-live="polite" ref={crumbsRef}>
           {hidden > 0 && <span className="arbre-sep">…</span>}
@@ -101,6 +119,19 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
             : "\u00a0"}
         </div>
       </div>
+
+      {searchPeople && (
+        <div className={searchOpen ? "arbre-panel arbre-search is-open" : "arbre-panel arbre-search"}>
+          <PersonSearch
+            people={searchPeople}
+            autoFocus={searchOpen}
+            onPick={(id) => {
+              setSearchOpen(false);
+              onGo(id);
+            }}
+          />
+        </div>
+      )}
 
       <div className="arbre-panel arbre-actions" ref={actionsRef}>
         <button
