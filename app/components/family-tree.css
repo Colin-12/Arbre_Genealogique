@@ -839,3 +839,40 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* ---------- Téléphone en paysage (peu de hauteur) : bandeau compact sur une seule ligne ---------- */
+@media (max-height: 519px) and (min-width: 700px) {
+  .arbre-nav {
+    flex-wrap: nowrap;
+    align-items: center;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+  .arbre-context {
+    flex: 0 1 auto;
+    max-width: 36%;
+    padding: 4px 10px;
+  }
+  .arbre-count {
+    display: none;
+  }
+  .arbre-search {
+    flex: 1 1 120px;
+    min-width: 100px;
+    padding: 3px;
+  }
+  .arbre-search .arbre-field {
+    min-height: 34px;
+    margin-bottom: 0;
+  }
+  .arbre-btn {
+    min-height: 36px;
+  }
+  .arbre-btn-label-optional {
+    display: none;
+  }
+  .arbre-actions {
+    flex: none;
+    padding: 4px;
+  }
+}

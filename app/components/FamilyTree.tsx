@@ -22,8 +22,12 @@ type ChartInstance = ReturnType<F3["createChart"]>;
 const CARD_W = 200;
 const CARD_H = 70;
 
-/** En dessous de cette largeur (px), on considère l'écran comme un téléphone. */
+/** En dessous de cette largeur (px), on considère l'écran comme un téléphone (portrait). */
 const NARROW_PX = 700;
+/** Téléphone en paysage : peu de hauteur disponible. */
+const SHORT_PX = 520;
+/** Taille minimale des cartes quand on recadre tout l'arbre (1 = taille normale). En dessous, le texte devient illisible. */
+const MIN_FIT_SCALE = 0.55;
 /** Zoom confortable sur téléphone, et position verticale de la personne centrale (0 = haut, 1 = bas). */
 const PHONE_SCALE = 0.85;
 const PHONE_ANCHOR = 0.32;
@@ -60,7 +64,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
   const [sheetOpen, setSheetOpen] = useState(false);
   const [notice, setNotice] = useState<{ text: string; undo?: () => Promise<void> } | null>(null);
 
-  const isNarrow = () => (containerRef.current?.clientWidth ?? Infinity) < NARROW_PX;
+  const isNarrow = () => (containerRef.current?.clientWidth ?? Infinity) < NARROW_PX || window.innerHeight < SHORT_PX;
 
   /** Téléphone : place la personne centrale en haut de l'écran, avec un zoom lisible. */
   const centerOnMain = useCallback((transition: number) => {
@@ -78,6 +82,19 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
     });
   }, []);
 
+  /**
+   * Après un recadrage complet : si les cartes sont devenues trop petites pour être lues (grand arbre),
+   * on revient à la vue lisible centrée sur la personne (le bouton "Recadrer" garde la vue d'ensemble).
+   */
+  const keepReadable = useCallback(() => {
+    window.setTimeout(() => {
+      const container = containerRef.current;
+      if (!container || !chartRef.current) return;
+      const el = container.querySelector<HTMLElement>(".card-main .card-inner") ?? container.querySelector<HTMLElement>(".card-inner");
+      if (el && el.getBoundingClientRect().width / CARD_W < MIN_FIT_SCALE) centerOnMain(400);
+    }, 750);
+  }, [centerOnMain]);
+
   /** Se rend sur une personne : la recentre et met à jour le fil d'Ariane. */
   const goTo = useCallback(
     (id: string, reset = false) => {
@@ -89,10 +106,11 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         centerOnMain(600);
       } else {
         chart.updateTree({ tree_position: "fit" });
+        keepReadable();
       }
       setTrail((t) => nextTrail(t, id, reset));
     },
-    [centerOnMain]
+    [centerOnMain, keepReadable]
   );
 
   /** Recadre la vue actuelle (utile après avoir déplacé ou zoomé l'arbre). */
@@ -123,6 +141,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         centerOnMain(600);
       } else {
         chart.updateTree({ tree_position: "fit" });
+        keepReadable();
       }
 
       setPeople(data);
@@ -132,7 +151,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         setTrail((t) => nextTrail(t.filter((id) => ids.has(id)), target));
       }
     },
-    [loadData, centerOnMain]
+    [loadData, centerOnMain, keepReadable]
   );
 
   /** Après une modification : recharge l'arbre, ou signale que l'affichage n'a pas pu suivre. */
@@ -230,6 +249,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
 
         chart.updateTree({ initial: true });
         if (isNarrow()) centerOnMain(0);
+        else keepReadable();
         refresh();
 
         // Rotation du téléphone, redimensionnement de la fenêtre : on recadre (sans le premier appel,
@@ -241,7 +261,10 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
             return;
           }
           window.clearTimeout(resizeTimer);
-          resizeTimer = window.setTimeout(refit, 150);
+          resizeTimer = window.setTimeout(() => {
+            refit();
+            if (!isNarrow()) keepReadable();
+          }, 150);
         });
         resizeObserver.observe(container);
       } catch (e) {
@@ -260,7 +283,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
       chartRef.current = null;
       if (container) container.innerHTML = "";
     };
-  }, [loadData, dataUrl, mainId, goTo, centerOnMain, refit]);
+  }, [loadData, dataUrl, mainId, goTo, centerOnMain, refit, keepReadable]);
 
   if (error) {
     return (
