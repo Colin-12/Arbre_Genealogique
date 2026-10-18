@@ -1322,3 +1322,40 @@
 .arbre-treeitem-name {
   font-weight: 500;
 }
+
+/* ---------- Demandes d'accès et invitations en lot ---------- */
+.arbre-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #c0392b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+.arbre-request-msg {
+  font-size: 14px;
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.arbre-requests {
+  border-left: 3px solid #c0392b;
+  padding-left: 10px;
+}
+.arbre-batch {
+  margin: 0;
+  padding-left: 18px;
+}
+.arbre-batch li {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+}
+.arbre-access-msg {
+  min-height: 70px;
+}

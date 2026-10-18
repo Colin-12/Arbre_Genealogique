@@ -12,7 +12,7 @@ import AddPersonDialog from "./AddPersonDialog";
 import EditPersonDialog from "./EditPersonDialog";
 import PersonSheet from "./PersonSheet";
 import ShareDialog from "./ShareDialog";
-import { ROLE_LABEL, type Role } from "@/lib/sharing";
+import { ROLE_LABEL, pendingRequestsCount, type Role } from "@/lib/sharing";
 import LinksDialog from "./LinksDialog";
 import DeletePersonDialog from "./DeletePersonDialog";
 import type { ManageAction } from "./TreeNav";
@@ -71,7 +71,18 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
   const [managing, setManaging] = useState<ManageAction | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [pendingRequests, setPendingRequests] = useState(0);
   const [notice, setNotice] = useState<{ text: string; undo?: () => Promise<void> } | null>(null);
+
+  // Propriétaire : combien de demandes d'accès attendent une réponse (pastille sur "Inviter")
+  useEffect(() => {
+    if (role !== "owner" || !treeId) return;
+    let alive = true;
+    pendingRequestsCount(treeId).then((n) => alive && setPendingRequests(n));
+    return () => {
+      alive = false;
+    };
+  }, [role, treeId]);
 
   const isNarrow = () => (containerRef.current?.clientWidth ?? Infinity) < NARROW_PX || window.innerHeight < SHORT_PX;
 
@@ -333,6 +344,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         treeName={treeName}
         onSheet={anchor ? () => setSheetOpen(true) : undefined}
         onShare={role === "owner" && treeId && userId ? () => setSharing(true) : undefined}
+        shareBadge={pendingRequests}
         roleLabel={role && !canEdit ? (ROLE_LABEL[role as Role] ?? role) : undefined}
         onAdd={canEdit && treeId && anchor ? setAdding : undefined}
         onManage={canEdit && treeId && anchor ? setManaging : undefined}
@@ -341,7 +353,15 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
       />
       <div ref={containerRef} className="f3 arbre" />
       {sharing && treeId && userId && (
-        <ShareDialog treeId={treeId} treeName={treeName ?? "l'arbre"} userId={userId} onClose={() => setSharing(false)} />
+        <ShareDialog
+          treeId={treeId}
+          treeName={treeName ?? "l'arbre"}
+          userId={userId}
+          onClose={(n) => {
+            setSharing(false);
+            setPendingRequests(n);
+          }}
+        />
       )}
       {sheetOpen && anchor && (
         <PersonSheet

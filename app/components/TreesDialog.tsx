@@ -2,19 +2,21 @@
 
 import { useEffect, useId } from "react";
 import type { MyTree } from "@/lib/trees";
-import { ROLE_LABEL, type Role } from "@/lib/sharing";
+import { ROLE_LABEL, type MyAccessRequest, type Role } from "@/lib/sharing";
 
 type Props = {
   trees: MyTree[];
   currentId: string | undefined;
   onSwitch: (treeId: string) => void;
+  /** Demandes d'accès envoyées et pas encore acceptées. */
+  pending?: MyAccessRequest[];
   onCreate: () => void;
   onSignOut: () => void;
   onClose: () => void;
 };
 
 /** Mes arbres : changer d'arbre, en créer un nouveau, se déconnecter. */
-export default function TreesDialog({ trees, currentId, onSwitch, onCreate, onSignOut, onClose }: Props) {
+export default function TreesDialog({ trees, currentId, onSwitch, pending = [], onCreate, onSignOut, onClose }: Props) {
   const titleId = useId();
 
   useEffect(() => {
@@ -54,6 +56,12 @@ export default function TreesDialog({ trees, currentId, onSwitch, onCreate, onSi
               </li>
             ))}
           </ul>
+        )}
+
+        {pending.length > 0 && (
+          <p className="arbre-hint">
+            Demande{pending.length > 1 ? "s" : ""} en attente de réponse : {pending.map((r) => r.tree_name).join(", ")}.
+          </p>
         )}
 
         <div className="arbre-share-actions">

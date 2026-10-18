@@ -3,15 +3,24 @@
 import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
 import {
   GRANTABLE,
+  MAX_BATCH,
   ROLE_HELP,
   ROLE_LABEL,
+  accessUrl,
+  answerAccessRequest,
   changeMemberRole,
-  createInvitation,
+  createInvitations,
+  getJoinCode,
+  listAccessRequests,
   listInvitations,
   listMembers,
+  parseEmails,
+  regenerateJoinCode,
   removeMember,
   revokeInvitation,
   sendInvitationEmail,
+  type AccessRequest,
+  type BatchResult,
   type GrantableRole,
   type Invitation,
   type Member,
@@ -22,7 +31,8 @@ type Props = {
   treeName: string;
   /** Compte connecté (pour repérer "toi" dans la liste). */
   userId: string;
-  onClose: () => void;
+  /** Appelé à la fermeture, avec le nombre de demandes d'accès encore en attente. */
+  onClose: (pendingRequests: number) => void;
 };
 
 function dateFr(iso: string | null): string {
@@ -51,16 +61,31 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [email, setEmail] = useState("");
+  const [requests, setRequests] = useState<AccessRequest[]>([]);
+  const [requestRole, setRequestRole] = useState<Record<string, GrantableRole>>({});
+  const [code, setCode] = useState<string | null>(null);
+  const [confirmRegen, setConfirmRegen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const [emails, setEmails] = useState("");
   const [inviteRole, setInviteRole] = useState<GrantableRole>("editor");
-  const [invited, setInvited] = useState<{ address: string; mailError: string | null } | null>(null);
+  const [results, setResults] = useState<BatchResult[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
+  const parsed = parseEmails(emails);
+
   const refresh = useCallback(async () => {
-    const [m, i] = await Promise.all([listMembers(treeId), listInvitations(treeId)]);
+    const [m, i, r, c] = await Promise.all([
+      listMembers(treeId),
+      listInvitations(treeId),
+      listAccessRequests(treeId).catch(() => [] as AccessRequest[]),
+      getJoinCode(treeId).catch(() => null),
+    ]);
     setMembers(m);
     setInvitations(i);
+    setRequests(r);
+    setCode(c);
     setLoaded(true);
   }, [treeId]);
 
@@ -76,10 +101,14 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
   }, [refresh]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !busy && onClose();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !busy && close();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [busy, onClose]);
+  });
+
+  function close() {
+    onClose(requests.length);
+  }
 
   /** Exécute une action puis recharge les listes, en affichant l'erreur éventuelle. */
   async function run(action: () => Promise<void>) {
@@ -97,18 +126,40 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
 
   function invite(e: FormEvent) {
     e.preventDefault();
-    const address = email.trim();
-    if (!address) return;
+    if (parsed.invalid.length > 0 || parsed.valid.length === 0 || parsed.valid.length > MAX_BATCH) return;
     setNotice(null);
+    setResults(null);
     run(async () => {
-      const mailError = await createInvitation(treeId, address, inviteRole);
-      setInvited({ address, mailError });
-      setEmail("");
+      const out = await createInvitations(treeId, parsed.valid, inviteRole);
+      setResults(out);
+      // on garde dans la zone de saisie seulement les adresses qui ont échoué, pour pouvoir corriger
+      const failed = out.filter((r) => r.status === "failed").map((r) => r.address);
+      setEmails(failed.join("\n"));
     });
   }
 
+  async function copyLink() {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(accessUrl(code));
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2500);
+    } catch {
+      setError("Impossible de copier automatiquement : sélectionne le lien ci-dessus et copie-le à la main.");
+    }
+  }
+
+  async function shareLink() {
+    if (!code) return;
+    try {
+      await navigator.share({ title: treeName, text: `Rejoins l'arbre généalogique « ${treeName} » :`, url: accessUrl(code) });
+    } catch {
+      // partage annulé : rien à signaler
+    }
+  }
+
   function resend(address: string) {
-    setInvited(null);
+    setResults(null);
     setNotice(null);
     run(async () => {
       const mailError = await sendInvitationEmail(address);
@@ -121,7 +172,7 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
     <div
       className="arbre-modal-backdrop"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget && !busy) onClose();
+        if (e.target === e.currentTarget && !busy) close();
       }}
     >
       <div className="arbre-modal arbre-share" role="dialog" aria-modal="true" aria-labelledby={titleId}>
@@ -135,41 +186,145 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
           </div>
         )}
 
+        {requests.length > 0 && (
+          <section className="arbre-links-section arbre-requests">
+            <h3>Demandes d&apos;accès ({requests.length})</h3>
+            <ul>
+              {requests.map((r) => (
+                <li key={r.id} className="arbre-link-row arbre-share-member">
+                  <div className="arbre-link-person">
+                    <span>{r.display_name}</span>
+                    {r.email && <span className="arbre-hint arbre-share-email">{r.email}</span>}
+                    {r.message && <span className="arbre-request-msg">« {r.message} »</span>}
+                  </div>
+                  <div className="arbre-link-confirm">
+                    <RoleSelect
+                      value={requestRole[r.id] ?? "viewer"}
+                      disabled={busy}
+                      label={`Rôle à donner à ${r.display_name}`}
+                      onChange={(role) => setRequestRole((m) => ({ ...m, [r.id]: role }))}
+                    />
+                    <button type="button" className="arbre-btn arbre-btn-accent" disabled={busy} onClick={() => run(() => answerAccessRequest(r.id, true, requestRole[r.id] ?? "viewer"))}>
+                      Accepter
+                    </button>
+                    <button type="button" className="arbre-btn" disabled={busy} onClick={() => run(() => answerAccessRequest(r.id, false, "viewer"))}>
+                      Refuser
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {code && (
+          <section className="arbre-links-section">
+            <h3>Inviter avec un lien</h3>
+            <p className="arbre-hint">
+              Envoie ce lien à tes proches (message, WhatsApp...). Chacun crée son compte puis fait une demande : tu valides ici, une par une.
+              Le lien seul ne donne accès à rien.
+            </p>
+            <input className="arbre-field" readOnly value={accessUrl(code)} onFocus={(e) => e.currentTarget.select()} aria-label="Lien à envoyer à tes proches" />
+            <div className="arbre-share-actions">
+              <button type="button" className="arbre-btn arbre-btn-accent" onClick={copyLink} disabled={busy}>
+                {copied ? "Lien copié" : "Copier le lien"}
+              </button>
+              {typeof navigator !== "undefined" && typeof navigator.share === "function" && (
+                <button type="button" className="arbre-btn" onClick={shareLink} disabled={busy}>
+                  Envoyer le lien...
+                </button>
+              )}
+            </div>
+            {confirmRegen ? (
+              <div className="arbre-picked">
+                <div>L&apos;ancien lien cessera de fonctionner (les demandes déjà reçues restent). Changer le lien ?</div>
+                <div className="arbre-share-actions">
+                  <button
+                    type="button"
+                    className="arbre-btn arbre-btn-danger-solid"
+                    disabled={busy}
+                    onClick={() =>
+                      run(async () => {
+                        await regenerateJoinCode(treeId);
+                        setConfirmRegen(false);
+                      })
+                    }
+                  >
+                    Changer le lien
+                  </button>
+                  <button type="button" className="arbre-btn" onClick={() => setConfirmRegen(false)}>
+                    Garder
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button type="button" className="arbre-link" onClick={() => setConfirmRegen(true)} disabled={busy}>
+                Le lien a circulé trop loin ? Le changer
+              </button>
+            )}
+          </section>
+        )}
+
         <section className="arbre-links-section">
           <h3>Inviter par e-mail</h3>
           <form onSubmit={invite}>
-            <input
+            <textarea
               className="arbre-field"
-              type="email"
-              inputMode="email"
+              rows={3}
               autoComplete="off"
-              placeholder="adresse@exemple.fr"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-label="Adresse e-mail de la personne à inviter"
-              required
+              autoCapitalize="none"
+              spellCheck={false}
+              placeholder={"adresse1@exemple.fr\nadresse2@exemple.fr\n(une par ligne, ou séparées par des virgules)"}
+              value={emails}
+              onChange={(e) => setEmails(e.target.value)}
+              aria-label="Adresses e-mail des personnes à inviter"
             />
+            {parsed.invalid.length > 0 && (
+              <div className="arbre-login-error" role="alert">
+                Adresse non reconnue : {parsed.invalid.join(", ")}
+              </div>
+            )}
+            {parsed.valid.length > MAX_BATCH && (
+              <div className="arbre-login-error" role="alert">
+                {MAX_BATCH} adresses au plus à la fois ({parsed.valid.length} saisies). Envoie les autres ensuite.
+              </div>
+            )}
             <div className="arbre-share-row">
-              <RoleSelect value={inviteRole} onChange={setInviteRole} label="Rôle de la personne invitée" />
-              <button type="submit" className="arbre-btn arbre-btn-accent" disabled={busy || !email.trim()}>
-                Inviter
+              <RoleSelect value={inviteRole} onChange={setInviteRole} label="Rôle des personnes invitées" />
+              <button
+                type="submit"
+                className="arbre-btn arbre-btn-accent"
+                disabled={busy || parsed.valid.length === 0 || parsed.invalid.length > 0 || parsed.valid.length > MAX_BATCH}
+              >
+                {parsed.valid.length > 1 ? `Inviter ${parsed.valid.length} personnes` : "Inviter"}
               </button>
             </div>
             <span className="arbre-hint">{ROLE_LABEL[inviteRole]} : {ROLE_HELP[inviteRole]}.</span>
           </form>
 
-          {invited && (
+          {results && (
             <div className="arbre-picked arbre-share-done" role="status">
-              {invited.mailError ? (
+              {results.every((r) => r.status === "sent") ? (
                 <div>
-                  L&apos;invitation de <strong>{invited.address}</strong> est enregistrée, mais l&apos;e-mail n&apos;est pas parti : {invited.mailError}{" "}
-                  Tu pourras le renvoyer depuis la liste ci-dessous.
+                  {results.length === 1 ? (
+                    <>
+                      Un e-mail avec le lien de connexion vient d&apos;être envoyé à <strong>{results[0].address}</strong>. La personne n&apos;a qu&apos;à cliquer dessus pour ouvrir l&apos;arbre.
+                    </>
+                  ) : (
+                    <>Les {results.length} e-mails sont partis. Chaque personne n&apos;a qu&apos;à cliquer sur son lien pour ouvrir l&apos;arbre.</>
+                  )}
                 </div>
               ) : (
-                <div>
-                  Un e-mail avec le lien de connexion vient d&apos;être envoyé à <strong>{invited.address}</strong>. La personne n&apos;a qu&apos;à
-                  cliquer dessus pour ouvrir l&apos;arbre.
-                </div>
+                <ul className="arbre-batch">
+                  {results.map((r) => (
+                    <li key={r.address}>
+                      <strong>{r.address}</strong> :{" "}
+                      {r.status === "sent" && "e-mail envoyé."}
+                      {r.status === "recorded" && <>invitation enregistrée, mais l&apos;e-mail n&apos;est pas parti ({r.detail}) Tu pourras le renvoyer depuis la liste ci-dessous.</>}
+                      {r.status === "failed" && <>non invitée : {r.detail}</>}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           )}
@@ -255,7 +410,7 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
         </section>
 
         <div className="arbre-modal-actions">
-          <button type="button" className="arbre-btn arbre-btn-accent" onClick={onClose} disabled={busy}>
+          <button type="button" className="arbre-btn arbre-btn-accent" onClick={close} disabled={busy}>
             Terminé
           </button>
         </div>

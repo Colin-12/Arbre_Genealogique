@@ -104,6 +104,157 @@ export async function removeMember(treeId: string, userId: string): Promise<void
   if (error) fail(error.message);
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// ---------- Invitations en lot ----------
+
+/** Nombre maximum d'adresses par envoi (le service d'e-mail limite le nombre de messages par heure). */
+export const MAX_BATCH = 20;
+
+const EMAIL = /^[^\s@<>,;()]+@[^\s@<>,;()]+\.[^\s@<>,;()]{2,}$/;
+
+/** Extrait les adresses d'un texte collé (séparées par des espaces, virgules, points-virgules ou retours à la ligne ; "Nom <adresse>" accepté). */
+export function parseEmails(text: string): { valid: string[]; invalid: string[] } {
+  const valid: string[] = [];
+  const invalid: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of text.split(/[\s,;]+/)) {
+    const token = raw.trim().replace(/^<|>$/g, "");
+    if (!token) continue;
+    if (!EMAIL.test(token)) {
+      // un morceau de "Prénom Nom <a@b.fr>" (le prénom ou le nom) n'est pas une erreur si une adresse suit
+      if (!/@/.test(token)) continue;
+      invalid.push(token);
+      continue;
+    }
+    const key = token.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    valid.push(key);
+  }
+  return { valid, invalid };
+}
+
+export type BatchResult = { address: string; status: "sent" | "recorded" | "failed"; detail: string | null };
+
+/**
+ * Invite plusieurs adresses avec le même rôle, une par une. Une adresse en échec n'arrête pas les autres,
+ * sauf si le service d'e-mail refuse d'en envoyer davantage (les suivantes sont alors seulement enregistrées).
+ */
+export async function createInvitations(treeId: string, addresses: string[], role: GrantableRole): Promise<BatchResult[]> {
+  const out: BatchResult[] = [];
+  let mailBlocked: string | null = null;
+  for (const address of addresses) {
+    try {
+      if (mailBlocked) {
+        const { error } = await supabase.rpc("create_invitation", { p_tree: treeId, p_email: address, p_role: role });
+        if (error) fail(error.message);
+        out.push({ address, status: "recorded", detail: mailBlocked });
+        continue;
+      }
+      const mailError = await createInvitation(treeId, address, role);
+      if (!mailError) out.push({ address, status: "sent", detail: null });
+      else {
+        out.push({ address, status: "recorded", detail: mailError });
+        if (/trop de demandes|rate limit/i.test(mailError)) mailBlocked = mailError;
+      }
+    } catch (e) {
+      out.push({ address, status: "failed", detail: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  return out;
+}
+
+// ---------- Demandes d'accès (lien à partager, le propriétaire valide) ----------
+
+export type AccessRequest = { id: string; user_id: string; display_name: string; email: string | null; message: string | null; created_at: string };
+export type TreeForCode = { id: string; name: string; member: boolean; requested: boolean };
+export type MyAccessRequest = { id: string; tree_name: string; created_at: string };
+
+export async function getJoinCode(treeId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("get_join_code", { p_tree: treeId });
+  if (error) fail(error.message);
+  return String(data);
+}
+
+export async function regenerateJoinCode(treeId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("regenerate_join_code", { p_tree: treeId });
+  if (error) fail(error.message);
+  return String(data);
+}
+
+export async function pendingRequestsCount(treeId: string): Promise<number> {
+  const { data, error } = await supabase.rpc("pending_requests_count", { p_tree: treeId });
+  if (error) return 0;
+  return typeof data === "number" ? data : 0;
+}
+
+export async function listAccessRequests(treeId: string): Promise<AccessRequest[]> {
+  const { data, error } = await supabase.rpc("list_access_requests", { p_tree: treeId });
+  if (error) fail(error.message);
+  return (Array.isArray(data) ? data : []) as AccessRequest[];
+}
+
+export async function answerAccessRequest(id: string, accept: boolean, role: GrantableRole): Promise<void> {
+  const { error } = await supabase.rpc("answer_access_request", { p_request: id, p_accept: accept, p_role: role });
+  if (error) fail(error.message);
+}
+
+export async function treeForCode(code: string): Promise<TreeForCode> {
+  const { data, error } = await supabase.rpc("tree_for_code", { p_code: code });
+  if (error) fail(error.message);
+  return data as TreeForCode;
+}
+
+export async function requestAccess(code: string, message: string): Promise<void> {
+  const { error } = await supabase.rpc("request_access", { p_code: code, p_message: message.trim() || null });
+  if (error) fail(error.message);
+}
+
+export async function myAccessRequests(): Promise<MyAccessRequest[]> {
+  const { data, error } = await supabase.rpc("my_access_requests");
+  if (error) return [];
+  return (Array.isArray(data) ? data : []) as MyAccessRequest[];
+}
+
+/** Adresse à envoyer aux proches : ils se connectent puis demandent l'accès. */
+export function accessUrl(code: string): string {
+  return `${window.location.origin}/?rejoindre=${code}`;
+}
+
+const ACCESS_KEY = "arbre_access_code";
+
+/** Lit ?rejoindre=... dans l'adresse, le garde de côté (le temps de se connecter) et nettoie l'adresse. */
+export function stashAccessCode(): void {
+  try {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get("rejoindre");
+    if (code === null) return;
+    if (UUID.test(code)) localStorage.setItem(ACCESS_KEY, code.toLowerCase());
+    url.searchParams.delete("rejoindre");
+    window.history.replaceState(null, "", url.pathname + (url.search ? url.search : "") + url.hash);
+  } catch {
+    // navigateur sans stockage : le lien devra être rouvert après la connexion
+  }
+}
+
+export function pendingAccessCode(): string | null {
+  try {
+    const c = localStorage.getItem(ACCESS_KEY);
+    return c && UUID.test(c) ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearAccessCode(): void {
+  try {
+    localStorage.removeItem(ACCESS_KEY);
+  } catch {
+    // sans importance
+  }
+}
+
 /** Adresse à envoyer à un proche pour rejoindre l'arbre avec un lien de partage. */
 export function shareUrl(token: string): string {
   return `${window.location.origin}/?join=${token}`;
@@ -112,7 +263,6 @@ export function shareUrl(token: string): string {
 // ---------- Rejoindre un arbre (côté invité) ----------
 
 const JOIN_KEY = "arbre_join_token";
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Lit ?join=... dans l'adresse, le garde de côté (le temps de se connecter) et nettoie l'adresse. */
 export function stashJoinToken(): void {

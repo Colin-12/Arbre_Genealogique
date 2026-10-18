@@ -8,7 +8,20 @@ import { loadTreePeople } from "@/lib/loadTree";
 import { listMyTrees, pickTree, storeTreeChoice, type MyTree } from "@/lib/trees";
 import CreateTreeDialog from "./CreateTreeDialog";
 import TreesDialog from "./TreesDialog";
-import { friendlyLoginError, joinPendingTrees, pendingJoinToken, stashJoinToken } from "@/lib/sharing";
+import {
+  clearAccessCode,
+  friendlyLoginError,
+  joinPendingTrees,
+  myAccessRequests,
+  pendingAccessCode,
+  pendingJoinToken,
+  requestAccess,
+  stashAccessCode,
+  stashJoinToken,
+  treeForCode,
+  type MyAccessRequest,
+  type TreeForCode,
+} from "@/lib/sharing";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -21,10 +34,14 @@ export default function TreeApp() {
   const [currentId, setCurrentId] = useState<string | undefined>(undefined);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<"trees" | "create" | null>(null);
+  // Lien de demande d'accès (?rejoindre=...) ouvert par cette personne, et demandes qu'elle a déjà envoyées
+  const [access, setAccess] = useState<{ code: string; info: TreeForCode | null; error: string | null } | null>(null);
+  const [requests, setRequests] = useState<MyAccessRequest[]>([]);
 
-  // Lien d'invitation (?join=...) : on garde le jeton de côté, le temps de se connecter
+  // Liens reçus (?join=... ancien lien d'invitation, ?rejoindre=... demande d'accès) : on garde le code de côté, le temps de se connecter
   useEffect(() => {
     stashJoinToken();
+    stashAccessCode();
   }, []);
 
   useEffect(() => {
@@ -37,6 +54,8 @@ export default function TreeApp() {
         setTrees(null);
         setCurrentId(undefined);
         setMetaError(null);
+        setAccess(null);
+        setRequests([]);
       }
     });
     return () => data.subscription.unsubscribe();
@@ -53,7 +72,29 @@ export default function TreeApp() {
         const list = await listMyTrees();
         if (cancelled) return;
         setTrees(list);
-        setCurrentId(pickTree(list, userId, join.joined)?.id);
+        let openId = pickTree(list, userId, join.joined)?.id;
+
+        // Lien de demande d'accès : si l'arbre est déjà le sien on l'ouvre, sinon on propose de demander l'accès
+        const code = pendingAccessCode();
+        if (code) {
+          try {
+            const info = await treeForCode(code);
+            if (cancelled) return;
+            if (info.member) {
+              clearAccessCode();
+              openId = info.id;
+              storeTreeChoice(userId, info.id);
+            } else {
+              setAccess({ code, info, error: null });
+            }
+          } catch (e) {
+            if (cancelled) return;
+            setAccess({ code, info: null, error: e instanceof Error ? e.message : String(e) });
+          }
+        }
+        setRequests(await myAccessRequests());
+        if (cancelled) return;
+        setCurrentId(openId);
       } catch (e) {
         if (cancelled) return;
         const base = e instanceof Error ? e.message : String(e);
@@ -109,6 +150,20 @@ export default function TreeApp() {
   }
   if (trees === null) return <div className="arbre-login" aria-busy="true" />;
 
+  if (access) {
+    return (
+      <AccessScreen
+        access={access}
+        hasTrees={trees.length > 0}
+        onDone={async () => {
+          clearAccessCode();
+          setAccess(null);
+          setRequests(await myAccessRequests());
+        }}
+      />
+    );
+  }
+
   const dialogs = (
     <>
       {dialog === "trees" && (
@@ -116,6 +171,7 @@ export default function TreeApp() {
           trees={trees}
           currentId={currentId}
           onSwitch={switchTo}
+          pending={requests}
           onCreate={() => setDialog("create")}
           onSignOut={() => supabase.auth.signOut()}
           onClose={() => setDialog(null)}
@@ -130,7 +186,17 @@ export default function TreeApp() {
     return (
       <>
         <Notice title="Bienvenue">
-          <p>Tu n&apos;as pas encore d&apos;arbre. Tu peux créer le tien, ou attendre l&apos;invitation d&apos;un proche : elle te donnera accès à son arbre dès que tu te connectes avec cette adresse.</p>
+          {requests.length > 0 ? (
+            <p>
+              Ta demande d&apos;accès à <strong>{requests.map((r) => r.tree_name).join(", ")}</strong> est en attente : le propriétaire de l&apos;arbre doit la valider. Reviens
+              ici ensuite, avec cette adresse.
+            </p>
+          ) : (
+            <p>
+              Tu n&apos;as pas encore d&apos;arbre. Pour rejoindre celui d&apos;un proche, ouvre le lien qu&apos;il t&apos;a envoyé (ou attends son invitation par e-mail). Tu peux aussi
+              créer le tien.
+            </p>
+          )}
           <div className="arbre-share-actions">
             <button type="button" className="arbre-btn arbre-btn-accent" onClick={() => setDialog("create")}>
               Créer mon arbre
@@ -163,6 +229,87 @@ export default function TreeApp() {
   );
 }
 
+/** Écran affiché à quelqu'un qui ouvre un lien de demande d'accès : il écrit un mot, le propriétaire décide. */
+function AccessScreen({
+  access,
+  hasTrees,
+  onDone,
+}: {
+  access: { code: string; info: TreeForCode | null; error: string | null };
+  hasTrees: boolean;
+  onDone: () => void;
+}) {
+  const [message, setMessage] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent">(access.info?.requested ? "sent" : "idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function send(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setState("sending");
+    try {
+      await requestAccess(access.code, message);
+      setState("sent");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      setState("idle");
+    }
+  }
+
+  if (!access.info) {
+    return (
+      <Notice title="Lien invalide">
+        <p>{access.error ?? "Ce lien n'est plus valide."} Demande au propriétaire de l&apos;arbre de t&apos;en envoyer un nouveau.</p>
+        <button type="button" className="arbre-btn arbre-btn-accent" onClick={onDone}>
+          Continuer
+        </button>
+      </Notice>
+    );
+  }
+
+  if (state === "sent") {
+    return (
+      <Notice title="Demande envoyée">
+        <p>
+          Le propriétaire de <strong>{access.info.name}</strong> va recevoir ta demande. Dès qu&apos;il l&apos;aura acceptée, l&apos;arbre s&apos;ouvrira quand tu te connecteras avec cette adresse.
+        </p>
+        <button type="button" className="arbre-btn arbre-btn-accent" onClick={onDone}>
+          Continuer
+        </button>
+      </Notice>
+    );
+  }
+
+  return (
+    <div className="arbre-login">
+      <form className="arbre-panel arbre-login-card" onSubmit={send}>
+        <h1>Rejoindre un arbre</h1>
+        <p>
+          Tu as reçu le lien de l&apos;arbre <strong>{access.info.name}</strong>. Pour y entrer, le propriétaire doit accepter ta demande.
+        </p>
+        <label className="arbre-label" htmlFor="access-msg">
+          Un mot pour te présenter (facultatif)
+        </label>
+        <textarea
+          id="access-msg"
+          className="arbre-field arbre-access-msg"
+          maxLength={300}
+          placeholder="Ex. : Pierre, le fils de Marie"
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+        />
+        {error && <div className="arbre-login-error">{error}</div>}
+        <button type="submit" className="arbre-btn arbre-btn-primary" disabled={state === "sending"}>
+          {state === "sending" ? "Envoi..." : "Demander l'accès"}
+        </button>
+        <button type="button" className="arbre-link" onClick={onDone}>
+          {hasTrees ? "Plus tard" : "Non merci"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function Notice({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="arbre-login">
@@ -180,6 +327,7 @@ function LoginForm() {
   const [message, setMessage] = useState("");
   // Lien d'invitation ouvert avant la connexion : le jeton permet de créer le compte
   const [joinToken] = useState(() => pendingJoinToken());
+  const [hasAccessLink] = useState(() => pendingAccessCode() !== null);
 
   async function send(e: FormEvent) {
     e.preventDefault();
@@ -213,6 +361,7 @@ function LoginForm() {
         ) : (
           <>
             {joinToken && <p className="arbre-join-banner">Tu as reçu une invitation à rejoindre un arbre. Connecte-toi pour l&apos;ouvrir.</p>}
+            {hasAccessLink && <p className="arbre-join-banner">Tu as reçu le lien d&apos;un arbre. Connecte-toi, puis tu pourras demander à le rejoindre.</p>}
             <p>Entre ton adresse email : tu recevras un lien pour te connecter, sans mot de passe.</p>
             <input
               className="arbre-field"

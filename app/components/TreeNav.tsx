@@ -28,6 +28,8 @@ type Props = {
   treeName?: string;
   /** Si fournie, affiche le bouton "Partager" (propriétaire : invitations et membres). */
   onShare?: () => void;
+  /** Nombre de demandes d'accès en attente (pastille sur "Inviter"). */
+  shareBadge?: number;
   /** Rôle de la personne connectée (affiché quand elle ne peut pas modifier). */
   roleLabel?: string;
   /** Si fournie, affiche le bouton "Fiche" (consultation de la personne au centre). */
@@ -48,7 +50,7 @@ type MenuName = "parents" | "add" | "manage" | null;
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onTrees, treeName, onShare, roleLabel, onSheet, onAdd, onManage, canDelete = true, searchPeople }: Props) {
+export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onTrees, treeName, onShare, shareBadge = 0, roleLabel, onSheet, onAdd, onManage, canDelete = true, searchPeople }: Props) {
   const [menu, setMenu] = useState<MenuName>(null);
   // Téléphone : la recherche est repliée derrière une loupe (sur ordinateur, elle est toujours visible)
   const [searchOpen, setSearchOpen] = useState(false);
@@ -177,11 +179,12 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
           <span className="arbre-btn-label-optional">Recadrer</span>
         </button>
         {onShare && (
-          <button type="button" className="arbre-btn arbre-btn-invite" onClick={onShare} title="Inviter des proches par e-mail et gérer les accès" aria-label="Inviter des proches">
+          <button type="button" className="arbre-btn arbre-btn-invite" onClick={onShare} title="Inviter des proches et gérer les accès" aria-label={shareBadge > 0 ? `Inviter des proches (${shareBadge} demande${shareBadge > 1 ? "s" : ""} en attente)` : "Inviter des proches"}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M3 6h18v12H3zM3 7l9 6.5L21 7" />
             </svg>
             Inviter
+            {shareBadge > 0 && <span className="arbre-badge" aria-hidden="true">{shareBadge}</span>}
           </button>
         )}
         {onSheet && (
