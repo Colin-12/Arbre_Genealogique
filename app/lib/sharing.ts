@@ -59,9 +59,24 @@ export async function listShareLinks(treeId: string): Promise<ShareLink[]> {
   return ((data ?? []) as ShareLink[]).filter((l) => !l.expires_at || new Date(l.expires_at).getTime() > now);
 }
 
-export async function createInvitation(treeId: string, email: string, role: GrantableRole): Promise<void> {
+/**
+ * Envoie à l'adresse invitée le lien de connexion (e-mail Supabase). L'invitation étant déjà enregistrée,
+ * la personne peut créer son compte, et elle rejoint l'arbre à sa première connexion.
+ * Retourne null si l'e-mail est parti, sinon un message d'explication.
+ */
+export async function sendInvitationEmail(email: string): Promise<string | null> {
+  const { error } = await supabase.auth.signInWithOtp({
+    email: email.trim(),
+    options: { emailRedirectTo: window.location.origin, shouldCreateUser: true },
+  });
+  return error ? friendlyLoginError(error.message) : null;
+}
+
+/** Enregistre l'invitation puis envoie l'e-mail. Retourne null si tout est parti, sinon la raison de l'échec de l'e-mail. */
+export async function createInvitation(treeId: string, email: string, role: GrantableRole): Promise<string | null> {
   const { error } = await supabase.rpc("create_invitation", { p_tree: treeId, p_email: email.trim(), p_role: role });
   if (error) fail(error.message);
+  return sendInvitationEmail(email);
 }
 
 export async function revokeInvitation(id: string): Promise<void> {
@@ -151,6 +166,9 @@ export async function joinPendingTrees(): Promise<string | null> {
 export function friendlyLoginError(message: string): string {
   if (/database error saving new user|signups not allowed|signup.*disabled/i.test(message)) {
     return "Cette adresse n'a pas été invitée. Demande une invitation au propriétaire de l'arbre, puis réessaie avec l'adresse invitée.";
+  }
+  if (/only request this after|after \d+ seconds/i.test(message)) {
+    return "Un e-mail vient d'être envoyé à cette adresse. Attends une minute avant d'en renvoyer un.";
   }
   if (/rate limit/i.test(message)) return "Trop de demandes de lien. Attends un peu avant de réessayer.";
   return message;

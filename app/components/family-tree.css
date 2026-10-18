@@ -1047,3 +1047,22 @@
   background: #eef4f7;
   color: var(--nav-text);
 }
+
+/* Très petit écran : "Inviter" garde son texte ; "Ajouter" et "Modifier" perdent leur pictogramme pour que tout tienne sur une ligne */
+@media (max-width: 479px) {
+  .arbre-actions .arbre-ico-optional {
+    display: none;
+  }
+}
+
+@media (max-width: 399px) {
+  /* Écrans de 360 px : on resserre encore la barre pour que les sept boutons tiennent */
+  .arbre-actions {
+    gap: 3px;
+    padding: 3px;
+  }
+  .arbre-actions .arbre-btn {
+    padding: 0 6px;
+    gap: 4px;
+  }
+}

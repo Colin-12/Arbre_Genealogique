@@ -167,11 +167,11 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
           <span className="arbre-btn-label-optional">Recadrer</span>
         </button>
         {onShare && (
-          <button type="button" className="arbre-btn" onClick={onShare} title="Inviter des proches et gérer les accès" aria-label="Partager">
+          <button type="button" className="arbre-btn arbre-btn-invite" onClick={onShare} title="Inviter des proches par e-mail et gérer les accès" aria-label="Inviter des proches">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M16 11a4 4 0 100-8 4 4 0 000 8zM3 21v-1a6 6 0 0112 0v1M19 8v6M16 11h6" />
+              <path d="M3 6h18v12H3zM3 7l9 6.5L21 7" />
             </svg>
-            <span className="arbre-btn-label-optional">Partager</span>
+            Inviter
           </button>
         )}
         {onSheet && (
@@ -190,7 +190,7 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
             aria-expanded={menu === "add"}
             title="Ajouter une personne reliée à la personne au centre"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg className="arbre-ico-optional" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
             </svg>
             Ajouter
@@ -205,7 +205,7 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
             aria-expanded={menu === "manage"}
             title="Corriger ou supprimer la personne au centre"
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg className="arbre-ico-optional" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
             </svg>
             Modifier

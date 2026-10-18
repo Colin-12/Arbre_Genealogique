@@ -7,18 +7,14 @@ import {
   ROLE_LABEL,
   changeMemberRole,
   createInvitation,
-  createShareLink,
   listInvitations,
   listMembers,
-  listShareLinks,
   removeMember,
   revokeInvitation,
-  revokeShareLink,
-  shareUrl,
+  sendInvitationEmail,
   type GrantableRole,
   type Invitation,
   type Member,
-  type ShareLink,
 } from "@/lib/sharing";
 
 type Props = {
@@ -51,23 +47,20 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
   const titleId = useId();
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
-  const [links, setLinks] = useState<ShareLink[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<GrantableRole>("editor");
-  const [invited, setInvited] = useState<string | null>(null);
-  const [linkRole, setLinkRole] = useState<GrantableRole>("viewer");
-  const [copied, setCopied] = useState<string | null>(null);
+  const [invited, setInvited] = useState<{ address: string; mailError: string | null } | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [m, i, l] = await Promise.all([listMembers(treeId), listInvitations(treeId), listShareLinks(treeId)]);
+    const [m, i] = await Promise.all([listMembers(treeId), listInvitations(treeId)]);
     setMembers(m);
     setInvitations(i);
-    setLinks(l);
     setLoaded(true);
   }, [treeId]);
 
@@ -102,34 +95,23 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
     e.preventDefault();
     const address = email.trim();
     if (!address) return;
+    setNotice(null);
     run(async () => {
-      await createInvitation(treeId, address, inviteRole);
-      setInvited(address);
+      const mailError = await createInvitation(treeId, address, inviteRole);
+      setInvited({ address, mailError });
       setEmail("");
     });
   }
 
-  const inviteMessage = (address: string) =>
-    `Je t'invite à rejoindre notre arbre généalogique familial. Ouvre ${window.location.origin} et connecte-toi avec l'adresse ${address} : tu recevras un lien de connexion par e-mail, et l'arbre s'ouvrira.`;
-
-  async function copy(key: string, text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(key);
-      window.setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
-    } catch {
-      setError("Copie impossible : sélectionne le texte et copie-le à la main.");
-    }
+  function resend(address: string) {
+    setInvited(null);
+    setNotice(null);
+    run(async () => {
+      const mailError = await sendInvitationEmail(address);
+      if (mailError) throw new Error(mailError);
+      setNotice(`E-mail renvoyé à ${address}.`);
+    });
   }
-
-  async function sendVia(text: string, url?: string) {
-    try {
-      await navigator.share({ title: "Arbre généalogique", text, url });
-    } catch {
-      // partage annulé : sans importance
-    }
-  }
-  const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   return (
     <div
@@ -140,7 +122,7 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
     >
       <div className="arbre-modal arbre-share" role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <h2 id={titleId}>
-          Partager <span className="arbre-modal-name">{treeName}</span>
+          Inviter des proches dans <span className="arbre-modal-name">{treeName}</span>
         </h2>
 
         {error && (
@@ -174,20 +156,22 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
 
           {invited && (
             <div className="arbre-picked arbre-share-done" role="status">
-              <div>
-                <strong>{invited}</strong> est invité(e). Aucun e-mail n&apos;est envoyé automatiquement : préviens la personne, elle n&apos;aura
-                qu&apos;à se connecter avec cette adresse.
-              </div>
-              <div className="arbre-share-actions">
-                <button type="button" className="arbre-btn" onClick={() => copy("msg", inviteMessage(invited))}>
-                  {copied === "msg" ? "Copié" : "Copier le message"}
-                </button>
-                {canShare && (
-                  <button type="button" className="arbre-btn" onClick={() => sendVia(inviteMessage(invited))}>
-                    Envoyer...
-                  </button>
-                )}
-              </div>
+              {invited.mailError ? (
+                <div>
+                  L&apos;invitation de <strong>{invited.address}</strong> est enregistrée, mais l&apos;e-mail n&apos;est pas parti : {invited.mailError}{" "}
+                  Tu pourras le renvoyer depuis la liste ci-dessous.
+                </div>
+              ) : (
+                <div>
+                  Un e-mail avec le lien de connexion vient d&apos;être envoyé à <strong>{invited.address}</strong>. La personne n&apos;a qu&apos;à
+                  cliquer dessus pour ouvrir l&apos;arbre.
+                </div>
+              )}
+            </div>
+          )}
+          {notice && (
+            <div className="arbre-picked arbre-share-done" role="status">
+              {notice}
             </div>
           )}
         </section>
@@ -204,55 +188,19 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
                       {ROLE_LABEL[inv.role]}, valable jusqu&apos;au {dateFr(inv.expires_at)}
                     </span>
                   </div>
-                  <button type="button" className="arbre-btn" disabled={busy} onClick={() => run(() => revokeInvitation(inv.id))}>
-                    Annuler
-                  </button>
+                  <div className="arbre-link-confirm">
+                    <button type="button" className="arbre-btn" disabled={busy} onClick={() => resend(inv.email)}>
+                      Renvoyer
+                    </button>
+                    <button type="button" className="arbre-btn" disabled={busy} onClick={() => run(() => revokeInvitation(inv.id))}>
+                      Annuler
+                    </button>
+                  </div>
                 </li>
               ))}
             </ul>
           </section>
         )}
-
-        <section className="arbre-links-section">
-          <h3>Lien de partage</h3>
-          <span className="arbre-hint">
-            Toute personne qui ouvre ce lien et se connecte rejoint l&apos;arbre avec le rôle choisi. Désactive-le quand il ne sert plus.
-          </span>
-          <div className="arbre-share-row">
-            <RoleSelect value={linkRole} onChange={setLinkRole} label="Rôle donné par le lien" />
-            <button type="button" className="arbre-btn" disabled={busy} onClick={() => run(() => createShareLink(treeId, linkRole))}>
-              Créer un lien
-            </button>
-          </div>
-          {links.length > 0 && (
-            <ul>
-              {links.map((l) => {
-                const url = shareUrl(l.token);
-                return (
-                  <li key={l.id} className="arbre-link-row arbre-share-link">
-                    <div className="arbre-link-person">
-                      <span>{ROLE_LABEL[l.role]}</span>
-                      <span className="arbre-hint">valable jusqu&apos;au {dateFr(l.expires_at)}</span>
-                    </div>
-                    <div className="arbre-link-confirm">
-                      <button type="button" className="arbre-btn" onClick={() => copy(l.id, url)}>
-                        {copied === l.id ? "Copié" : "Copier"}
-                      </button>
-                      {canShare && (
-                        <button type="button" className="arbre-btn" onClick={() => sendVia("Rejoins notre arbre généalogique familial :", url)}>
-                          Envoyer...
-                        </button>
-                      )}
-                      <button type="button" className="arbre-btn arbre-btn-danger" disabled={busy} onClick={() => run(() => revokeShareLink(l.id))}>
-                        Désactiver
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
 
         <section className="arbre-links-section">
           <h3>Personnes qui ont accès</h3>
