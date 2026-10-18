@@ -100,3 +100,73 @@ export async function suggestPersons(treeId: string, query: string): Promise<Sug
   if (error) throw new Error(error.message);
   return (data ?? []) as Suggestion[];
 }
+
+/** Texte partiel d'une personne ("1984", "1984-05", "1984-05-12") -> champs de saisie. */
+export function toPartialInput(raw: unknown): PartialInput {
+  const m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/.exec(String(raw ?? "").trim());
+  if (!m) return { ...EMPTY_DATE };
+  return { year: m[1], month: m[2] ? String(Number(m[2])) : "", day: m[3] ? String(Number(m[3])) : "" };
+}
+
+/** Valide la saisie d'une personne. Retourne la personne prête à enregistrer, ou un message d'erreur. */
+export function buildPerson(
+  first: string,
+  last: string,
+  gender: "" | "M" | "F",
+  birth: PartialInput,
+  deceased: boolean,
+  death: PartialInput
+): NewPerson | string {
+  if (!first.trim() && !last.trim()) return "Il faut au moins un prénom ou un nom.";
+  if (!gender) return "Indique si c'est un homme ou une femme.";
+  const b = parsePartialDate(birth, "Naissance");
+  if (typeof b === "string") return b;
+  const d = deceased ? parsePartialDate(death, "Décès") : { date: null, precision: null };
+  if (typeof d === "string") return d;
+  if (b.date && d.date && d.date < b.date) return "La date de décès est antérieure à la date de naissance.";
+  return { first, last, gender, birth: b, death: d };
+}
+
+/** Corrige les informations d'une personne. */
+export async function updatePerson(id: string, p: NewPerson): Promise<void> {
+  const { data, error } = await supabase
+    .from("persons")
+    .update({
+      first_names: p.first.trim() || null,
+      last_name: p.last.trim() || null,
+      gender: p.gender,
+      birth_date: p.birth.date,
+      birth_precision: p.birth.precision,
+      death_date: p.death.date,
+      death_precision: p.death.precision,
+      is_living: p.death.date ? false : null,
+    })
+    .eq("id", id)
+    .select("id");
+  if (error) throw new Error(friendly(error.message));
+  if (!data || data.length === 0) throw new Error("Modification refusée : tu n'as pas le droit de modifier cet arbre.");
+}
+
+/** Retire un lien : 'parent' (détache la personne de son parent) ou 'spouse' (retire le couple). */
+export async function removeRelation(treeId: string, personId: string, kind: "parent" | "spouse", otherId: string): Promise<void> {
+  const { error } = await supabase.rpc("remove_relation", {
+    p_tree: treeId,
+    p_person: personId,
+    p_kind: kind,
+    p_other: otherId,
+  });
+  if (error) throw new Error(friendly(error.message));
+}
+
+/** Suppression douce : la personne disparaît de l'arbre mais reste récupérable (restorePerson). */
+async function setDeleted(id: string, deleted: boolean): Promise<void> {
+  const { data, error } = await supabase
+    .from("persons")
+    .update({ deleted_at: deleted ? new Date().toISOString() : null })
+    .eq("id", id)
+    .select("id");
+  if (error) throw new Error(friendly(error.message));
+  if (!data || data.length === 0) throw new Error("Action refusée : tu n'as pas le droit de modifier cet arbre.");
+}
+export const softDeletePerson = (id: string) => setDeleted(id, true);
+export const restorePerson = (id: string) => setDeleted(id, false);

@@ -294,9 +294,12 @@
 }
 
 @media (max-width: 479px) {
-  /* Très petit écran : "Recadrer" garde son icône seule pour laisser la place à "Ajouter" */
+  /* Très petit écran : les boutons de navigation gardent leur icône seule, pour laisser la place à "Ajouter" et "Modifier" */
   .arbre-btn-label-optional {
     display: none;
+  }
+  .arbre-actions .arbre-btn {
+    padding: 0 10px;
   }
 }
 
@@ -598,4 +601,105 @@
 }
 .arbre-notice-body p {
   margin: 0 0 12px;
+}
+
+/* ---------- Corrections : modifier, retirer un lien, supprimer ---------- */
+.arbre-btn-danger {
+  color: #b3261e;
+  border-color: #e3b8b4;
+}
+.arbre-btn-danger:hover:not(:disabled) {
+  border-color: #b3261e;
+  color: #b3261e;
+}
+.arbre-btn-danger-solid {
+  background: #b3261e;
+  border-color: #b3261e;
+  color: #fff;
+}
+.arbre-btn-danger-solid:hover:not(:disabled) {
+  background: #8f1d17;
+  border-color: #8f1d17;
+  color: #fff;
+}
+.arbre-hint {
+  display: block;
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--nav-muted);
+}
+.arbre-links-section {
+  margin-bottom: 14px;
+}
+.arbre-links-section h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nav-muted);
+}
+.arbre-links-section ul,
+.arbre-impact {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.arbre-impact {
+  margin-bottom: 12px;
+  padding-left: 4px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.arbre-impact li::before {
+  content: "• ";
+  color: var(--nav-muted);
+}
+.arbre-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+  border: 1px solid var(--nav-border);
+  border-radius: 10px;
+  background: #fff;
+}
+.arbre-link-person {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  font-size: 14px;
+}
+.arbre-link-person .arbre-hint {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.arbre-link-confirm {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.arbre-link-row > .arbre-btn {
+  flex: none;
+  min-height: 36px;
+  font-size: 13px;
+}
+.arbre-toast {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.arbre-toast-action {
+  border: 0;
+  background: none;
+  padding: 4px 6px;
+  font: inherit;
+  font-weight: 600;
+  color: #9fd3e8;
+  text-decoration: underline;
+  cursor: pointer;
 }

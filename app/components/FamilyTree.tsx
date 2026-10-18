@@ -9,7 +9,11 @@ import { updateUnionLinks } from "@/lib/unions";
 import { nextTrail, parentsOf, plainName } from "@/lib/navigation";
 import TreeNav from "./TreeNav";
 import AddPersonDialog from "./AddPersonDialog";
-import type { Relation } from "@/lib/editTree";
+import EditPersonDialog from "./EditPersonDialog";
+import LinksDialog from "./LinksDialog";
+import DeletePersonDialog from "./DeletePersonDialog";
+import type { ManageAction } from "./TreeNav";
+import { restorePerson, type Relation } from "@/lib/editTree";
 
 type F3 = typeof import("family-chart");
 type ChartInstance = ReturnType<F3["createChart"]>;
@@ -51,7 +55,8 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
   const [visible, setVisible] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState<Relation | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [managing, setManaging] = useState<ManageAction | null>(null);
+  const [notice, setNotice] = useState<{ text: string; undo?: () => Promise<void> } | null>(null);
 
   const isNarrow = () => (containerRef.current?.clientWidth ?? Infinity) < NARROW_PX;
 
@@ -96,24 +101,53 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
     else chart.updateTree({ tree_position: "fit", transition_time: 400 });
   }, [centerOnMain]);
 
-  /** Recharge les personnes depuis la base après un ajout, sans perdre la vue ni le fil d'Ariane. */
-  const reload = useCallback(async () => {
-    const chart = chartRef.current;
-    if (!chart || !loadData) return;
-    const data = await loadData();
-    chart.updateData(data);
-    if (isNarrow()) {
-      chart.updateTree({ tree_position: "inherit" });
-      centerOnMain(600);
-    } else {
-      chart.updateTree({ tree_position: "fit" });
-    }
-    setPeople(data);
-  }, [loadData, centerOnMain]);
+  /**
+   * Recharge les personnes depuis la base après une modification, sans perdre la vue ni le fil d'Ariane.
+   * mainId : personne à placer au centre ensuite (sinon, celle qui y est déjà).
+   */
+  const reload = useCallback(
+    async (mainId?: string) => {
+      const chart = chartRef.current;
+      if (!chart || !loadData) return;
+      const data = await loadData();
+      const ids = new Set(data.map((d) => d.id));
+      const previous = chart.getMainDatum()?.id;
+      const target = mainId && ids.has(mainId) ? mainId : previous && ids.has(previous) ? previous : data[0]?.id;
+
+      chart.updateData(data);
+      if (target && target !== previous) chart.updateMainId(target);
+      if (isNarrow()) {
+        chart.updateTree({ tree_position: "inherit" });
+        centerOnMain(600);
+      } else {
+        chart.updateTree({ tree_position: "fit" });
+      }
+
+      setPeople(data);
+      if (target) {
+        // Le fil d'Ariane et la "vue initiale" ne gardent que des personnes qui existent encore
+        setInitialId((id) => (ids.has(id) ? id : target));
+        setTrail((t) => nextTrail(t.filter((id) => ids.has(id)), target));
+      }
+    },
+    [loadData, centerOnMain]
+  );
+
+  /** Après une modification : recharge l'arbre, ou signale que l'affichage n'a pas pu suivre. */
+  const refreshAfter = useCallback(
+    (text: string, mainId?: string, undo?: () => Promise<void>) => {
+      setNotice({ text, undo });
+      reload(mainId).catch((e) =>
+        setNotice({ text: `Fait, mais l'affichage n'a pas pu se mettre à jour : ${e instanceof Error ? e.message : e}` })
+      );
+    },
+    [reload]
+  );
 
   useEffect(() => {
     if (!notice) return;
-    const timer = window.setTimeout(() => setNotice(null), 3500);
+    // Plus de temps quand un bouton "Annuler" est proposé
+    const timer = window.setTimeout(() => setNotice(null), notice.undo ? 9000 : 3500);
     return () => window.clearTimeout(timer);
   }, [notice]);
 
@@ -259,6 +293,8 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         onFit={refit}
         onSignOut={onSignOut}
         onAdd={canEdit && treeId && anchor ? setAdding : undefined}
+        onManage={canEdit && treeId && anchor ? setManaging : undefined}
+        canDelete={people.length > 1}
       />
       <div ref={containerRef} className="f3 arbre" />
       {adding && treeId && anchor && (
@@ -270,14 +306,64 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
           onClose={() => setAdding(null)}
           onDone={(name) => {
             setAdding(null);
-            setNotice(`${name || "Personne"} ajouté(e)`);
-            reload().catch((e) => setNotice(`Ajout fait, mais l'affichage n'a pas pu se mettre à jour : ${e instanceof Error ? e.message : e}`));
+            refreshAfter(`${name || "Personne"} ajouté(e)`);
+          }}
+        />
+      )}
+      {managing === "edit" && anchor && (
+        <EditPersonDialog
+          person={anchor}
+          onClose={() => setManaging(null)}
+          onDone={(name) => {
+            setManaging(null);
+            refreshAfter(`${name || "Personne"} modifié(e)`);
+          }}
+        />
+      )}
+      {managing === "links" && treeId && anchor && (
+        <LinksDialog
+          treeId={treeId}
+          anchor={anchor}
+          people={people}
+          onClose={() => setManaging(null)}
+          onChanged={(message) => refreshAfter(message)}
+        />
+      )}
+      {managing === "delete" && anchor && (
+        <DeletePersonDialog
+          person={anchor}
+          people={people}
+          onClose={() => setManaging(null)}
+          onDone={() => {
+            const removed = anchor;
+            // Après la suppression, on recentre sur un proche (ou sur n'importe qui s'il n'y en a pas)
+            const relatives = [...removed.rels.parents, ...(removed.rels.spouses ?? []), ...(removed.rels.children ?? [])];
+            const next = relatives.find((id) => people.some((p) => p.id === id)) ?? people.find((p) => p.id !== removed.id)?.id;
+            setManaging(null);
+            refreshAfter(`${plainName(removed)} supprimé(e)`, next, async () => {
+              await restorePerson(removed.id);
+              setNotice({ text: `${plainName(removed)} restauré(e)` });
+              await reload(removed.id);
+            });
           }}
         />
       )}
       {notice && (
         <div className="arbre-toast" role="status">
-          {notice}
+          <span>{notice.text}</span>
+          {notice.undo && (
+            <button
+              type="button"
+              className="arbre-toast-action"
+              onClick={() => {
+                const undo = notice.undo;
+                setNotice(null);
+                undo?.().catch((e) => setNotice({ text: `Annulation impossible : ${e instanceof Error ? e.message : e}` }));
+              }}
+            >
+              Annuler
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -5,13 +5,15 @@ import type { Datum } from "family-chart";
 import {
   EMPTY_DATE,
   addRelative,
-  parsePartialDate,
+  buildPerson,
   suggestPersons,
   type PartialInput,
   type Relation,
   type Suggestion,
 } from "@/lib/editTree";
 import { plainName } from "@/lib/navigation";
+import { describePerson as describe } from "@/lib/describe";
+import DateFields from "./DateFields";
 
 type Props = {
   treeId: string;
@@ -24,72 +26,12 @@ type Props = {
   onDone: (label: string) => void;
 };
 
-const MONTHS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
 
 const TITLES: Record<Relation, string> = {
   child: "Ajouter un enfant à",
   spouse: "Ajouter un conjoint à",
   parent: "Ajouter un parent à",
 };
-
-/** "née en 1984, fille de Anne et Karim" : ce qui permet de reconnaître la bonne personne. */
-function describe(person: Datum | undefined, people: Datum[]): string {
-  if (!person) return "";
-  const gender = person.data["gender"];
-  const year = /^(\d{4})/.exec(String(person.data["birthday"] ?? ""))?.[1];
-  const parts: string[] = [];
-  if (year) parts.push(`${gender === "F" ? "née" : "né"} en ${year}`);
-  const parents = person.rels.parents
-    .map((id) => people.find((p) => p.id === id))
-    .map((p) => String(p?.data["first name"] ?? "").trim())
-    .filter(Boolean);
-  if (parents.length > 0) {
-    parts.push(`${gender === "F" ? "fille" : gender === "M" ? "fils" : "enfant"} de ${parents.join(" et ")}`);
-  }
-  return parts.join(", ");
-}
-
-function DateFields({ label, value, onChange }: { label: string; value: PartialInput; onChange: (v: PartialInput) => void }) {
-  return (
-    <fieldset className="arbre-fieldset">
-      <legend>{label}</legend>
-      <div className="arbre-date-row">
-        <input
-          className="arbre-field"
-          inputMode="numeric"
-          placeholder="Année"
-          maxLength={4}
-          value={value.year}
-          onChange={(e) => onChange({ ...value, year: e.target.value.replace(/\D/g, "") })}
-          aria-label={`${label} : année`}
-        />
-        <select
-          className="arbre-field"
-          value={value.month}
-          onChange={(e) => onChange({ ...value, month: e.target.value, day: e.target.value ? value.day : "" })}
-          aria-label={`${label} : mois`}
-        >
-          <option value="">Mois</option>
-          {MONTHS.map((m, i) => (
-            <option key={m} value={String(i + 1)}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <input
-          className="arbre-field"
-          inputMode="numeric"
-          placeholder="Jour"
-          maxLength={2}
-          value={value.day}
-          disabled={!value.month}
-          onChange={(e) => onChange({ ...value, day: e.target.value.replace(/\D/g, "") })}
-          aria-label={`${label} : jour`}
-        />
-      </div>
-    </fieldset>
-  );
-}
 
 export default function AddPersonDialog({ treeId, anchor, relation, people, onClose, onDone }: Props) {
   const titleId = useId();
@@ -155,13 +97,9 @@ export default function AddPersonDialog({ treeId, anchor, relation, people, onCl
 
     let person;
     if (!picked) {
-      if (!first.trim() && !last.trim()) return setError("Il faut au moins un prénom ou un nom.");
-      if (!gender) return setError("Indique si c'est un homme ou une femme.");
-      const b = parsePartialDate(birth, "Naissance");
-      if (typeof b === "string") return setError(b);
-      const d = deceased ? parsePartialDate(death, "Décès") : { date: null, precision: null };
-      if (typeof d === "string") return setError(d);
-      person = { first, last, gender, birth: b, death: d };
+      const built = buildPerson(first, last, gender, birth, deceased, death);
+      if (typeof built === "string") return setError(built);
+      person = built;
     }
 
     setBusy(true);

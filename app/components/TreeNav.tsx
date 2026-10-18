@@ -23,13 +23,19 @@ type Props = {
   onSignOut?: () => void;
   /** Si fournie, affiche le bouton "Ajouter" (réservé aux propriétaires et éditeurs). */
   onAdd?: (relation: Relation) => void;
+  /** Si fournie, affiche le bouton "Modifier" (corriger, retirer un lien, supprimer). */
+  onManage?: (action: ManageAction) => void;
+  /** Faux quand il ne reste qu'une personne : on ne peut plus supprimer. */
+  canDelete?: boolean;
 };
 
-type MenuName = "parents" | "add" | null;
+export type ManageAction = "edit" | "links" | "delete";
+
+type MenuName = "parents" | "add" | "manage" | null;
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onAdd }: Props) {
+export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onAdd, onManage, canDelete = true }: Props) {
   const [menu, setMenu] = useState<MenuName>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const crumbsRef = useRef<HTMLDivElement>(null);
@@ -104,17 +110,18 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
           disabled={parents.length === 0}
           aria-expanded={parents.length > 1 ? menu === "parents" : undefined}
           title={parents.length === 0 ? "Aucun parent connu" : "Centrer la vue sur un parent"}
+          aria-label="Remonter"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 19V5M5 12l7-7 7 7" />
           </svg>
-          Remonter
+          <span className="arbre-btn-label-optional">Remonter</span>
         </button>
-        <button type="button" className="arbre-btn" onClick={onInitial} disabled={atStart} title="Revenir à la vue de départ">
+        <button type="button" className="arbre-btn" onClick={onInitial} disabled={atStart} title="Revenir à la vue de départ" aria-label="Vue initiale">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M3 11l9-8 9 8M5 10v10h14V10" />
           </svg>
-          Vue initiale
+          <span className="arbre-btn-label-optional">Vue initiale</span>
         </button>
         <button type="button" className="arbre-btn" onClick={onFit} title="Recadrer la vue actuelle" aria-label="Recadrer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -135,6 +142,48 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
             </svg>
             Ajouter
           </button>
+        )}
+
+        {onManage && (
+          <button
+            type="button"
+            className="arbre-btn"
+            onClick={() => setMenu((m) => (m === "manage" ? null : "manage"))}
+            aria-expanded={menu === "manage"}
+            title="Corriger ou supprimer la personne au centre"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 20h9M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" />
+            </svg>
+            Modifier
+          </button>
+        )}
+
+        {menu === "manage" && onManage && (
+          <div className="arbre-panel arbre-menu arbre-menu-right" role="menu">
+            {(
+              [
+                ["edit", "Modifier les informations"],
+                ["links", "Corriger les liens"],
+                ["delete", "Supprimer cette personne"],
+              ] as const
+            ).map(([action, label]) => (
+              <button
+                key={action}
+                type="button"
+                role="menuitem"
+                className={action === "delete" ? "arbre-btn arbre-btn-danger" : "arbre-btn"}
+                disabled={action === "delete" && !canDelete}
+                title={action === "delete" && !canDelete ? "Impossible de supprimer la dernière personne" : undefined}
+                onClick={() => {
+                  setMenu(null);
+                  onManage(action);
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         )}
 
         {menu === "add" && onAdd && (
