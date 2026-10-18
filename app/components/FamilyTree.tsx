@@ -11,6 +11,8 @@ import TreeNav from "./TreeNav";
 import AddPersonDialog from "./AddPersonDialog";
 import EditPersonDialog from "./EditPersonDialog";
 import PersonSheet from "./PersonSheet";
+import ShareDialog from "./ShareDialog";
+import { ROLE_LABEL, type Role } from "@/lib/sharing";
 import LinksDialog from "./LinksDialog";
 import DeletePersonDialog from "./DeletePersonDialog";
 import type { ManageAction } from "./TreeNav";
@@ -45,11 +47,15 @@ type Props = {
   /** Arbre affiché et droit de modification : active le bouton "Ajouter". */
   treeId?: string;
   canEdit?: boolean;
+  /** Rôle dans l'arbre : le propriétaire peut partager ; les autres voient leur rôle quand ils ne peuvent pas modifier. */
+  role?: string;
+  treeName?: string;
+  userId?: string;
   /** Personne affichée au centre au départ (id). Par défaut : la première du fichier. */
   mainId?: string;
 };
 
-export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", onSignOut, treeId, canEdit = false, mainId }: Props) {
+export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", onSignOut, treeId, canEdit = false, role, treeName, userId, mainId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ChartInstance | null>(null);
   const f3Ref = useRef<F3 | null>(null);
@@ -62,6 +68,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
   const [adding, setAdding] = useState<Relation | null>(null);
   const [managing, setManaging] = useState<ManageAction | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [notice, setNotice] = useState<{ text: string; undo?: () => Promise<void> } | null>(null);
 
   const isNarrow = () => (containerRef.current?.clientWidth ?? Infinity) < NARROW_PX || window.innerHeight < SHORT_PX;
@@ -321,12 +328,17 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         onFit={refit}
         onSignOut={onSignOut}
         onSheet={anchor ? () => setSheetOpen(true) : undefined}
+        onShare={role === "owner" && treeId && userId ? () => setSharing(true) : undefined}
+        roleLabel={role && !canEdit ? (ROLE_LABEL[role as Role] ?? role) : undefined}
         onAdd={canEdit && treeId && anchor ? setAdding : undefined}
         onManage={canEdit && treeId && anchor ? setManaging : undefined}
         canDelete={people.length > 1}
         searchPeople={people}
       />
       <div ref={containerRef} className="f3 arbre" />
+      {sharing && treeId && userId && (
+        <ShareDialog treeId={treeId} treeName={treeName ?? "l'arbre"} userId={userId} onClose={() => setSharing(false)} />
+      )}
       {sheetOpen && anchor && (
         <PersonSheet
           treeId={treeId}

@@ -114,7 +114,7 @@ export async function loadMyTreeMeta(userId: string): Promise<TreeMeta> {
   const tree = trees?.[0];
   if (!tree) {
     throw new Error(
-      "Aucun arbre pour ce compte. Dans Supabase (SQL Editor), lance : select seed_sample_tree('ton adresse email');"
+      "Aucun arbre n'est associé à ce compte. Demande une invitation au propriétaire de l'arbre, puis reconnecte-toi avec l'adresse invitée."
     );
   }
   const { data: role, error: roleError } = await supabase.rpc("my_role", { p_tree: tree.id });

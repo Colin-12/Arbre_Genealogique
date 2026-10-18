@@ -5,6 +5,7 @@ import type { Session } from "@supabase/supabase-js";
 import FamilyTree from "./FamilyTree";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
 import { loadMyTreeMeta, loadTreePeople, type TreeMeta } from "@/lib/loadTree";
+import { friendlyLoginError, joinPendingTrees, pendingJoinToken, stashJoinToken } from "@/lib/sharing";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -14,6 +15,11 @@ export default function TreeApp() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [meta, setMeta] = useState<TreeMeta | null>(null);
   const [metaError, setMetaError] = useState<string | null>(null);
+
+  // Lien d'invitation (?join=...) : on garde le jeton de côté, le temps de se connecter
+  useEffect(() => {
+    stashJoinToken();
+  }, []);
 
   useEffect(() => {
     if (!supabaseConfigured) return;
@@ -27,9 +33,18 @@ export default function TreeApp() {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    loadMyTreeMeta(userId)
-      .then((m) => !cancelled && setMeta(m))
-      .catch((e) => !cancelled && setMetaError(e instanceof Error ? e.message : String(e)));
+    (async () => {
+      // Rejoint l'arbre d'un lien de partage et accepte les invitations faites à cette adresse
+      const joinNotice = await joinPendingTrees().catch(() => null);
+      try {
+        const m = await loadMyTreeMeta(userId);
+        if (!cancelled) setMeta(m);
+      } catch (e) {
+        if (cancelled) return;
+        const base = e instanceof Error ? e.message : String(e);
+        setMetaError(joinNotice ? `${joinNotice} ${base}` : base);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -67,6 +82,9 @@ export default function TreeApp() {
       loadData={loadData}
       treeId={treeId}
       canEdit={meta.role === "owner" || meta.role === "editor"}
+      role={meta.role}
+      treeName={meta.name}
+      userId={meta.userId}
       onSignOut={() => supabase.auth.signOut()}
     />
   );
@@ -87,17 +105,19 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  // Lien d'invitation ouvert avant la connexion : le jeton permet de créer le compte
+  const [joinToken] = useState(() => pendingJoinToken());
 
   async function send(e: FormEvent) {
     e.preventDefault();
     setStatus("sending");
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: window.location.origin, ...(joinToken ? { data: { join_token: joinToken } } : {}) },
     });
     if (error) {
       setStatus("error");
-      setMessage(error.message);
+      setMessage(friendlyLoginError(error.message));
     } else {
       setStatus("sent");
     }
@@ -119,6 +139,7 @@ function LoginForm() {
           </>
         ) : (
           <>
+            {joinToken && <p className="arbre-join-banner">Tu as reçu une invitation à rejoindre un arbre. Connecte-toi pour l&apos;ouvrir.</p>}
             <p>Entre ton adresse email : tu recevras un lien pour te connecter, sans mot de passe.</p>
             <input
               className="arbre-field"

@@ -23,6 +23,10 @@ type Props = {
   onFit: () => void;
   /** Si fournie, affiche un lien "Se déconnecter" dans le bandeau de contexte. */
   onSignOut?: () => void;
+  /** Si fournie, affiche le bouton "Partager" (propriétaire : invitations et membres). */
+  onShare?: () => void;
+  /** Rôle de la personne connectée (affiché quand elle ne peut pas modifier). */
+  roleLabel?: string;
   /** Si fournie, affiche le bouton "Fiche" (consultation de la personne au centre). */
   onSheet?: () => void;
   /** Si fournie, affiche le bouton "Ajouter" (réservé aux propriétaires et éditeurs). */
@@ -41,7 +45,7 @@ type MenuName = "parents" | "add" | "manage" | null;
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onSheet, onAdd, onManage, canDelete = true, searchPeople }: Props) {
+export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onShare, roleLabel, onSheet, onAdd, onManage, canDelete = true, searchPeople }: Props) {
   const [menu, setMenu] = useState<MenuName>(null);
   // Téléphone : la recherche est repliée derrière une loupe (sur ordinateur, elle est toujours visible)
   const [searchOpen, setSearchOpen] = useState(false);
@@ -117,7 +121,7 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
         </div>
         <div className="arbre-count">
           {total > 0
-            ? `${visible} personne${visible > 1 ? "s" : ""} affichée${visible > 1 ? "s" : ""} sur ${total}`
+            ? `${visible} personne${visible > 1 ? "s" : ""} affichée${visible > 1 ? "s" : ""} sur ${total}${roleLabel ? ` · ${roleLabel}` : ""}`
             : "\u00a0"}
         </div>
       </div>
@@ -162,6 +166,14 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
           </svg>
           <span className="arbre-btn-label-optional">Recadrer</span>
         </button>
+        {onShare && (
+          <button type="button" className="arbre-btn" onClick={onShare} title="Inviter des proches et gérer les accès" aria-label="Partager">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M16 11a4 4 0 100-8 4 4 0 000 8zM3 21v-1a6 6 0 0112 0v1M19 8v6M16 11h6" />
+            </svg>
+            <span className="arbre-btn-label-optional">Partager</span>
+          </button>
+        )}
         {onSheet && (
           <button type="button" className="arbre-btn" onClick={onSheet} title="Voir la fiche de la personne au centre" aria-label="Fiche">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
