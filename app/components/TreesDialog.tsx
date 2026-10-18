@@ -11,12 +11,16 @@ type Props = {
   /** Demandes d'accès envoyées et pas encore acceptées. */
   pending?: MyAccessRequest[];
   onCreate: () => void;
+  /** Ouvre l'écran "Quitter ou supprimer un arbre". */
+  onManage: () => void;
+  /** Adresse du compte connecté. */
+  email?: string;
   onSignOut: () => void;
   onClose: () => void;
 };
 
 /** Mes arbres : changer d'arbre, en créer un nouveau, se déconnecter. */
-export default function TreesDialog({ trees, currentId, onSwitch, pending = [], onCreate, onSignOut, onClose }: Props) {
+export default function TreesDialog({ trees, currentId, onSwitch, pending = [], onCreate, onManage, email, onSignOut, onClose }: Props) {
   const titleId = useId();
 
   useEffect(() => {
@@ -68,7 +72,14 @@ export default function TreesDialog({ trees, currentId, onSwitch, pending = [], 
           <button type="button" className="arbre-btn arbre-btn-accent" onClick={onCreate}>
             Créer un arbre
           </button>
+          {trees.length > 0 && (
+            <button type="button" className="arbre-btn" onClick={onManage}>
+              Quitter ou supprimer un arbre
+            </button>
+          )}
         </div>
+
+        {email && <p className="arbre-hint arbre-account">Connecté avec {email}</p>}
 
         <div className="arbre-modal-actions">
           <button type="button" className="arbre-link" onClick={onSignOut}>

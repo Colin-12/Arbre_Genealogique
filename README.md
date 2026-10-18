@@ -39,7 +39,7 @@ Les limites (3 arbres par personne, 500 personnes par arbre, 200 photos par arbr
 
 Il faut un compte Supabase (l'offre gratuite suffit) et Node.js.
 
-1. Créer un projet Supabase, puis lancer dans l'éditeur SQL, dans cet ordre : `db/schema.sql`, puis `db/002_auth_and_seed.sql` jusqu'à `db/012_notify_approved.sql`.
+1. Créer un projet Supabase, puis lancer dans l'éditeur SQL, dans cet ordre : `db/schema.sql`, puis `db/002_auth_and_seed.sql` jusqu'à `db/013_delete_tree.sql`.
 2. Dans Authentication, onglet URL Configuration, mettre l'adresse du site (et `http://localhost:3000/**` pour le développement) dans les URL de redirection.
 3. Créer `app/.env.local` avec deux variables : `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Ce sont les valeurs de Settings, API, dans Supabase. La clé « anon » peut être publique ; la clé `service_role`, elle, ne doit jamais se retrouver dans le dépôt ni dans l'application.
 4. Puis :
@@ -56,9 +56,14 @@ Les notifications sont facultatives. Elles passent par une petite route de l'app
 
 Détail pratique : le service e-mail intégré de Supabase limite très vite le nombre de liens envoyés. Dès qu'on invite plusieurs personnes, il vaut mieux brancher son propre SMTP (j'utilise un compte Gmail avec un mot de passe d'application, dans Authentication, SMTP Settings). Et il vaut mieux traduire les modèles d'e-mail, sinon les invités reçoivent un message en anglais.
 
+## Quitter ou supprimer un arbre
+
+Dans « Mes arbres », le bouton « Quitter ou supprimer un arbre » permet à chacun de quitter un arbre dont il n'est pas propriétaire. Le propriétaire peut le supprimer : il doit taper le nom exact de l'arbre, une sauvegarde (personnes et liens, sans les photos) lui est proposée, et la suppression est définitive pour tous les membres. L'adresse du compte connecté est affichée sur l'écran d'accueil et dans « Mes arbres ».
+
 ## Ce qui manque
 
-- Un moyen de supprimer un arbre, et de quitter un arbre dont on n'est pas propriétaire (la fonction existe côté base, pas encore le bouton).
+- Passer la propriété d'un arbre à quelqu'un d'autre. Aujourd'hui le propriétaire ne peut pas quitter son arbre, seulement le supprimer.
+- Restaurer une sauvegarde : le fichier téléchargé avant une suppression existe, mais l'appli ne sait pas encore le relire.
 - Une liste des personnes qui ne sont pas visibles depuis la vue actuelle. Aujourd'hui, les parents d'un conjoint existent bien dans l'arbre mais n'apparaissent que si on se recentre sur lui.
 - Un rendu neutre pour les personnes dont le sexe est inconnu : la bibliothèque de dessin ne connaît que homme et femme.
 - Rapprocher deux arbres qui se recoupent, quand deux branches de la famille se rejoignent.

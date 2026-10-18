@@ -1362,3 +1362,7 @@
 .arbre-push {
   margin: 0 0 12px;
 }
+.arbre-account {
+  margin: 12px 0 0;
+  overflow-wrap: anywhere;
+}

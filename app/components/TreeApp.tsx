@@ -8,6 +8,7 @@ import { loadTreePeople } from "@/lib/loadTree";
 import { listMyTrees, pickTree, storeTreeChoice, type MyTree } from "@/lib/trees";
 import CreateTreeDialog from "./CreateTreeDialog";
 import PushToggle from "./PushToggle";
+import LeaveTreeDialog from "./LeaveTreeDialog";
 import TreesDialog from "./TreesDialog";
 import {
   clearAccessCode,
@@ -34,7 +35,7 @@ export default function TreeApp() {
   const [trees, setTrees] = useState<MyTree[] | null>(null);
   const [currentId, setCurrentId] = useState<string | undefined>(undefined);
   const [metaError, setMetaError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<"trees" | "create" | null>(null);
+  const [dialog, setDialog] = useState<"trees" | "create" | "manage" | null>(null);
   // Lien de demande d'accès (?rejoindre=...) ouvert par cette personne, et demandes qu'elle a déjà envoyées
   const [access, setAccess] = useState<{ code: string; info: TreeForCode | null; error: string | null } | null>(null);
   const [requests, setRequests] = useState<MyAccessRequest[]>([]);
@@ -117,6 +118,14 @@ export default function TreeApp() {
     setDialog(null);
   }
 
+  /** Un arbre vient d'être quitté ou supprimé : on recharge la liste, et on change d'arbre si c'était celui qui était ouvert. */
+  async function onRemoved(id: string) {
+    const list = await listMyTrees();
+    setTrees(list);
+    if (id === currentId && userId) setCurrentId(pickTree(list, userId, false)?.id);
+    setDialog(list.length > 0 ? "trees" : null);
+  }
+
   async function onCreated(id: string) {
     try {
       const list = await listMyTrees();
@@ -174,10 +183,13 @@ export default function TreeApp() {
           onSwitch={switchTo}
           pending={requests}
           onCreate={() => setDialog("create")}
+          onManage={() => setDialog("manage")}
+          email={session.user.email ?? undefined}
           onSignOut={() => supabase.auth.signOut()}
           onClose={() => setDialog(null)}
         />
       )}
+      {dialog === "manage" && <LeaveTreeDialog trees={trees} onRemoved={onRemoved} onBack={() => setDialog("trees")} />}
       {dialog === "create" && <CreateTreeDialog onCreated={onCreated} onClose={() => setDialog(trees.length > 0 ? "trees" : null)} />}
     </>
   );
@@ -198,6 +210,7 @@ export default function TreeApp() {
               créer le tien.
             </p>
           )}
+          {session.user.email && <p className="arbre-hint arbre-account">Connecté avec {session.user.email}</p>}
           {requests.length > 0 && (
             <PushToggle
               offText="Reçois aussi une notification sur cet appareil dès que ta demande est acceptée."
