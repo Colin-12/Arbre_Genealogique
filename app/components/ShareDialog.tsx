@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useState, type FormEvent } from "react";
+import { disablePush, enablePush, getPushState, type PushState } from "@/lib/push";
 import {
   GRANTABLE,
   MAX_BATCH,
@@ -66,6 +67,7 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
   const [code, setCode] = useState<string | null>(null);
   const [confirmRegen, setConfirmRegen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [push, setPush] = useState<PushState>("unconfigured");
 
   const [emails, setEmails] = useState("");
   const [inviteRole, setInviteRole] = useState<GrantableRole>("editor");
@@ -99,6 +101,17 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
       }
     })();
   }, [refresh]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const state = await getPushState();
+      if (alive) setPush(state);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && !busy && close();
@@ -136,6 +149,21 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
       const failed = out.filter((r) => r.status === "failed").map((r) => r.address);
       setEmails(failed.join("\n"));
     });
+  }
+
+  async function togglePush() {
+    setError(null);
+    setBusy(true);
+    try {
+      if (push === "on") await disablePush();
+      else await enablePush();
+      setPush(await getPushState());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setPush(await getPushState());
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function copyLink() {
@@ -184,6 +212,38 @@ export default function ShareDialog({ treeId, treeName, userId, onClose }: Props
           <div className="arbre-login-error arbre-share-error" role="alert">
             {error}
           </div>
+        )}
+
+        {push !== "unconfigured" && (
+          <section className="arbre-links-section">
+            <h3>Être prévenu des demandes</h3>
+            {(push === "off" || push === "on") && (
+              <>
+                <p className="arbre-hint">
+                  {push === "on"
+                    ? "Les notifications sont activées sur cet appareil : tu en reçois une à chaque nouvelle demande d'accès, en plus de l'e-mail."
+                    : "Reçois une notification sur cet appareil à chaque nouvelle demande d'accès. Tu recevras aussi un e-mail, à l'adresse de ton compte."}
+                </p>
+                <div className="arbre-share-actions">
+                  <button type="button" className={push === "on" ? "arbre-btn" : "arbre-btn arbre-btn-accent"} onClick={togglePush} disabled={busy}>
+                    {push === "on" ? "Désactiver sur cet appareil" : "Activer les notifications"}
+                  </button>
+                </div>
+              </>
+            )}
+            {push === "needs-install" && (
+              <p className="arbre-hint">
+                Sur iPhone, installe d&apos;abord l&apos;appli : dans Safari, touche le bouton Partager, puis « Sur l&apos;écran d&apos;accueil ». Ouvre l&apos;appli depuis l&apos;écran d&apos;accueil, puis reviens ici pour activer les
+                notifications. En attendant, tu reçois les demandes par e-mail.
+              </p>
+            )}
+            {push === "denied" && (
+              <p className="arbre-hint">
+                Les notifications sont bloquées pour ce site dans ton navigateur. Autorise-les dans ses réglages, puis reviens ici. En attendant, tu reçois les demandes par e-mail.
+              </p>
+            )}
+            {push === "unsupported" && <p className="arbre-hint">Ce navigateur ne gère pas les notifications. Tu reçois quand même les demandes par e-mail.</p>}
+          </section>
         )}
 
         {requests.length > 0 && (
