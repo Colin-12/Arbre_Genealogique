@@ -1,0 +1,118 @@
+import type { Datum } from "family-chart";
+import { supabase } from "./supabase";
+
+export type PersonRow = {
+  id: string;
+  first_names: string | null;
+  last_name: string | null;
+  gender: string | null;
+  birth_date: string | null;
+  birth_precision: string | null;
+  death_date: string | null;
+  death_precision: string | null;
+  sibling_order: number | null;
+};
+export type UnionRow = { id: string; partner_a: string; partner_b: string | null };
+export type FiliationRow = { child_id: string; union_id: string };
+
+/** Date de la base ("1982-01-01") + précision -> texte partiel ("1982", "1982-05", "1982-05-12"). */
+export function partialDate(date: string | null, precision: string | null): string {
+  if (!date) return "";
+  const [y, m] = date.split("-");
+  if (precision === "day") return date;
+  if (precision === "month") return `${y}-${m}`;
+  return y; // "year" et "about" : l'année seule
+}
+
+function addUnique(list: string[], id: string) {
+  if (!list.includes(id)) list.push(id);
+}
+
+/**
+ * Transforme les lignes de la base (personnes, couples, filiations) dans le format attendu
+ * par family-chart : pour chaque personne, ses parents, conjoints et enfants.
+ */
+export function buildDatums(persons: PersonRow[], unions: UnionRow[], filiations: FiliationRow[]): Datum[] {
+  const byId = new Map<string, Datum>();
+  for (const p of persons) {
+    byId.set(p.id, {
+      id: p.id,
+      data: {
+        // family-chart ne connaît que M et F. A faire : un rendu neutre pour "X" / inconnu.
+        gender: (p.gender === "M" ? "M" : "F") as "M" | "F",
+        "first name": p.first_names ?? "",
+        "last name": p.last_name ?? "",
+        birthday: partialDate(p.birth_date, p.birth_precision),
+        deathday: partialDate(p.death_date, p.death_precision),
+        sibling_order: p.sibling_order ?? undefined,
+      },
+      rels: { parents: [], spouses: [], children: [] },
+    });
+  }
+
+  const unionById = new Map(unions.map((u) => [u.id, u]));
+
+  // Couples : chacun devient conjoint de l'autre
+  for (const u of unions) {
+    if (!u.partner_b) continue;
+    const a = byId.get(u.partner_a);
+    const b = byId.get(u.partner_b);
+    if (!a || !b) continue;
+    addUnique(a.rels.spouses!, b.id);
+    addUnique(b.rels.spouses!, a.id);
+  }
+
+  // Filiations : l'enfant a pour parents les partenaires de l'union
+  for (const f of filiations) {
+    const child = byId.get(f.child_id);
+    const union = unionById.get(f.union_id);
+    if (!child || !union) continue;
+    for (const pid of [union.partner_a, union.partner_b]) {
+      const parent = pid ? byId.get(pid) : undefined;
+      if (!parent) continue;
+      addUnique(child.rels.parents, parent.id);
+      addUnique(parent.rels.children!, child.id);
+    }
+  }
+
+  return [...byId.values()];
+}
+
+/**
+ * Charge le premier arbre auquel l'utilisateur connecté a accès.
+ * La base ne renvoie que ce que les règles de sécurité (RLS) autorisent.
+ * Note : Supabase renvoie au plus 1000 lignes par requête ; la pagination viendra avec les grands arbres.
+ */
+export async function loadMyTree(): Promise<Datum[]> {
+  const { data: trees, error: treeError } = await supabase
+    .from("trees")
+    .select("id, name")
+    .order("created_at", { ascending: true })
+    .limit(1);
+  if (treeError) throw new Error(treeError.message);
+  const tree = trees?.[0];
+  if (!tree) {
+    throw new Error(
+      "Aucun arbre pour ce compte. Dans Supabase (SQL Editor), lance : select seed_sample_tree('ton adresse email');"
+    );
+  }
+
+  const [persons, unions, filiations] = await Promise.all([
+    supabase
+      .from("persons")
+      .select("id, first_names, last_name, gender, birth_date, birth_precision, death_date, death_precision, sibling_order")
+      .eq("tree_id", tree.id)
+      .is("deleted_at", null),
+    supabase.from("unions").select("id, partner_a, partner_b").eq("tree_id", tree.id),
+    supabase.from("filiations").select("child_id, union_id").eq("tree_id", tree.id),
+  ]);
+  for (const r of [persons, unions, filiations]) if (r.error) throw new Error(r.error.message);
+
+  const people = buildDatums(
+    (persons.data ?? []) as PersonRow[],
+    (unions.data ?? []) as UnionRow[],
+    (filiations.data ?? []) as FiliationRow[]
+  );
+  if (people.length === 0) throw new Error("Cet arbre est vide.");
+  return people;
+}

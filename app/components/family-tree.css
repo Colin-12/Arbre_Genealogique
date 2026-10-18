@@ -163,6 +163,25 @@
   min-width: 0;
   max-width: 100%;
 }
+.arbre-context-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.arbre-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--nav-muted);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.arbre-link:hover {
+  color: var(--nav-accent);
+}
 .arbre-context-label {
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -286,4 +305,75 @@
     padding: 0 8px;
     font-size: 13px;
   }
+}
+
+/* =====================================================================
+   Connexion par lien magique (voir TreeApp.tsx)
+   ===================================================================== */
+.arbre-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 16px;
+  background: #f7f4ee;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #2a2a2a;
+  --nav-bg: rgba(255, 255, 255, 0.92);
+  --nav-text: #2a2a2a;
+  --nav-muted: #6f6a5f;
+  --nav-border: #d9d2c3;
+  --nav-accent: #1f5f7a;
+}
+.arbre-login-card {
+  width: 100%;
+  max-width: 380px;
+  padding: 24px 20px;
+}
+.arbre-login-card h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 600;
+}
+.arbre-login-card p {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--nav-muted);
+}
+.arbre-field {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin-bottom: 12px;
+  padding: 0 12px;
+  border: 1px solid var(--nav-border);
+  border-radius: 9px;
+  background: #fff;
+  font: inherit;
+  font-size: 16px; /* 16px : évite le zoom automatique sur iPhone */
+  color: var(--nav-text);
+}
+.arbre-field:focus-visible {
+  outline: 2px solid var(--nav-accent);
+  outline-offset: 1px;
+}
+.arbre-btn-primary {
+  width: 100%;
+  justify-content: center;
+  min-height: 44px;
+  background: var(--nav-accent);
+  border-color: var(--nav-accent);
+  color: #fff;
+}
+.arbre-btn-primary:hover:not(:disabled) {
+  background: #17495f;
+  color: #fff;
+}
+.arbre-login-error {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #b3261e;
 }

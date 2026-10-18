@@ -1,9 +1,9 @@
-import FamilyTree from "@/components/FamilyTree";
+import TreeApp from "@/components/TreeApp";
 
 export default function Home() {
   return (
     <main>
-      <FamilyTree />
+      <TreeApp />
     </main>
   );
 }

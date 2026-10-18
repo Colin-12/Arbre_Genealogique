@@ -17,11 +17,13 @@ type Props = {
   onGo: (id: string) => void;
   onInitial: () => void;
   onFit: () => void;
+  /** Si fournie, affiche un lien "Se déconnecter" dans le bandeau de contexte. */
+  onSignOut?: () => void;
 };
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit }: Props) {
+export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
   const crumbsRef = useRef<HTMLDivElement>(null);
@@ -61,7 +63,14 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
   return (
     <nav className="arbre-nav" aria-label="Navigation dans l'arbre">
       <div className="arbre-panel arbre-context">
-        <div className="arbre-context-label">Vue centrée sur</div>
+        <div className="arbre-context-head">
+          <span className="arbre-context-label">Vue centrée sur</span>
+          {onSignOut && (
+            <button type="button" className="arbre-link" onClick={onSignOut}>
+              Se déconnecter
+            </button>
+          )}
+        </div>
         <div className="arbre-crumbs" aria-live="polite" ref={crumbsRef}>
           {hidden > 0 && <span className="arbre-sep">…</span>}
           {shownEarlier.map((c) => (

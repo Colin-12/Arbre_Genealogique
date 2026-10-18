@@ -274,6 +274,11 @@ alter table memberships enable row level security;
 alter table persons     enable row level security;
 alter table unions      enable row level security;
 alter table filiations  enable row level security;
+-- Tables sans regle : fermees a l'API tant qu'aucune politique n'est definie
+alter table profiles    enable row level security;
+alter table invitations enable row level security;
+alter table share_links enable row level security;
+alter table audit_log   enable row level security;
 
 -- Arbres : visibles par leurs membres, modifiables par le propriétaire
 create policy trees_read   on trees for select using (my_role(id) is not null);

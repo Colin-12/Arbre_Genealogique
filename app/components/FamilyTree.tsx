@@ -25,13 +25,17 @@ const PHONE_ANCHOR = 0.32;
 const SHOW_SIBLINGS = true;
 
 type Props = {
-  /** URL du JSON (dans /public). Remplacé plus tard par la base de données. */
+  /** Fournit les personnes (base de données). Doit être une fonction stable (définie hors du composant). */
+  loadData?: () => Promise<Datum[]>;
+  /** À défaut de loadData : URL d'un JSON (dans /public), utile pour les essais. */
   dataUrl?: string;
+  /** Si fournie, affiche "Se déconnecter" dans le bandeau. */
+  onSignOut?: () => void;
   /** Personne affichée au centre au départ (id). Par défaut : la première du fichier. */
   mainId?: string;
 };
 
-export default function FamilyTree({ dataUrl = "/sample_family.json", mainId }: Props) {
+export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", onSignOut, mainId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ChartInstance | null>(null);
   const f3Ref = useRef<F3 | null>(null);
@@ -97,9 +101,14 @@ export default function FamilyTree({ dataUrl = "/sample_family.json", mainId }: 
 
     async function init() {
       try {
-        const res = await fetch(dataUrl);
-        if (!res.ok) throw new Error(`Impossible de charger ${dataUrl} (${res.status})`);
-        const data: Datum[] = await res.json();
+        let data: Datum[];
+        if (loadData) {
+          data = await loadData();
+        } else {
+          const res = await fetch(dataUrl);
+          if (!res.ok) throw new Error(`Impossible de charger ${dataUrl} (${res.status})`);
+          data = await res.json();
+        }
 
         // Import dynamique : la bibliothèque manipule le DOM, elle ne doit tourner que côté navigateur.
         const f3 = await import("family-chart");
@@ -184,10 +193,19 @@ export default function FamilyTree({ dataUrl = "/sample_family.json", mainId }: 
       chartRef.current = null;
       if (container) container.innerHTML = "";
     };
-  }, [dataUrl, mainId, goTo, centerOnMain, refit]);
+  }, [loadData, dataUrl, mainId, goTo, centerOnMain, refit]);
 
   if (error) {
-    return <p className="p-6 text-red-600">Erreur : {error}</p>;
+    return (
+      <div className="p-6">
+        <p className="text-red-600">Erreur : {error}</p>
+        {onSignOut && (
+          <button type="button" className="arbre-link mt-4" onClick={onSignOut}>
+            Se déconnecter
+          </button>
+        )}
+      </div>
+    );
   }
 
   const current = trail[trail.length - 1] ?? "";
@@ -210,6 +228,7 @@ export default function FamilyTree({ dataUrl = "/sample_family.json", mainId }: 
         onGo={(id) => goTo(id)}
         onInitial={() => goTo(initialId, true)}
         onFit={refit}
+        onSignOut={onSignOut}
       />
       <div ref={containerRef} className="f3 arbre" />
     </div>
