@@ -78,33 +78,50 @@ export function buildDatums(persons: PersonRow[], unions: UnionRow[], filiations
   return [...byId.values()];
 }
 
+export type TreeMeta = {
+  id: string;
+  name: string;
+  /** owner, editor, commenter ou viewer */
+  role: string;
+  /** Compte pour lequel ces informations ont été chargées. */
+  userId: string;
+};
+
 /**
- * Charge le premier arbre auquel l'utilisateur connecté a accès.
+ * Retrouve le premier arbre auquel l'utilisateur connecté a accès, et son rôle dans cet arbre.
  * La base ne renvoie que ce que les règles de sécurité (RLS) autorisent.
- * Note : Supabase renvoie au plus 1000 lignes par requête ; la pagination viendra avec les grands arbres.
  */
-export async function loadMyTree(): Promise<Datum[]> {
-  const { data: trees, error: treeError } = await supabase
+export async function loadMyTreeMeta(userId: string): Promise<TreeMeta> {
+  const { data: trees, error } = await supabase
     .from("trees")
     .select("id, name")
     .order("created_at", { ascending: true })
     .limit(1);
-  if (treeError) throw new Error(treeError.message);
+  if (error) throw new Error(error.message);
   const tree = trees?.[0];
   if (!tree) {
     throw new Error(
       "Aucun arbre pour ce compte. Dans Supabase (SQL Editor), lance : select seed_sample_tree('ton adresse email');"
     );
   }
+  const { data: role, error: roleError } = await supabase.rpc("my_role", { p_tree: tree.id });
+  if (roleError) throw new Error(roleError.message);
+  return { id: tree.id, name: tree.name, role: String(role ?? "viewer"), userId };
+}
 
+/**
+ * Charge toutes les personnes d'un arbre, au format de family-chart.
+ * Note : Supabase renvoie au plus 1000 lignes par requête ; la pagination viendra avec les grands arbres.
+ */
+export async function loadTreePeople(treeId: string): Promise<Datum[]> {
   const [persons, unions, filiations] = await Promise.all([
     supabase
       .from("persons")
       .select("id, first_names, last_name, gender, birth_date, birth_precision, death_date, death_precision, sibling_order")
-      .eq("tree_id", tree.id)
+      .eq("tree_id", treeId)
       .is("deleted_at", null),
-    supabase.from("unions").select("id, partner_a, partner_b").eq("tree_id", tree.id),
-    supabase.from("filiations").select("child_id, union_id").eq("tree_id", tree.id),
+    supabase.from("unions").select("id, partner_a, partner_b").eq("tree_id", treeId),
+    supabase.from("filiations").select("child_id, union_id").eq("tree_id", treeId),
   ]);
   for (const r of [persons, unions, filiations]) if (r.error) throw new Error(r.error.message);
 

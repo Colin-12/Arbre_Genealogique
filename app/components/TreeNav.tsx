@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import type { Relation } from "@/lib/editTree";
+
 export type Crumb = { id: string; label: string };
 
 type Props = {
@@ -19,12 +21,16 @@ type Props = {
   onFit: () => void;
   /** Si fournie, affiche un lien "Se déconnecter" dans le bandeau de contexte. */
   onSignOut?: () => void;
+  /** Si fournie, affiche le bouton "Ajouter" (réservé aux propriétaires et éditeurs). */
+  onAdd?: (relation: Relation) => void;
 };
+
+type MenuName = "parents" | "add" | null;
 
 const MAX_VISIBLE_CRUMBS = 4;
 
-export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
+export default function TreeNav({ trail, visible, total, parents, atStart, onGo, onInitial, onFit, onSignOut, onAdd }: Props) {
+  const [menu, setMenu] = useState<MenuName>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const crumbsRef = useRef<HTMLDivElement>(null);
 
@@ -36,10 +42,10 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
 
   // Ferme le menu des parents avec Échap ou un clic ailleurs
   useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenuOpen(false);
+    if (!menu) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMenu(null);
     const onClick = (e: MouseEvent) => {
-      if (!actionsRef.current?.contains(e.target as Node)) setMenuOpen(false);
+      if (!actionsRef.current?.contains(e.target as Node)) setMenu(null);
     };
     document.addEventListener("keydown", onKey);
     document.addEventListener("mousedown", onClick);
@@ -47,7 +53,7 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
       document.removeEventListener("keydown", onKey);
       document.removeEventListener("mousedown", onClick);
     };
-  }, [menuOpen]);
+  }, [menu]);
 
   // Avant le chargement des données, on garde la même hauteur pour éviter un saut de mise en page
   const current: Crumb = trail[trail.length - 1] ?? { id: "", label: "Chargement..." };
@@ -57,7 +63,7 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
 
   const goUp = () => {
     if (parents.length === 1) onGo(parents[0].id);
-    else if (parents.length > 1) setMenuOpen((open) => !open);
+    else if (parents.length > 1) setMenu((m) => (m === "parents" ? null : "parents"));
   };
 
   return (
@@ -96,7 +102,7 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
           className="arbre-btn"
           onClick={goUp}
           disabled={parents.length === 0}
-          aria-expanded={parents.length > 1 ? menuOpen : undefined}
+          aria-expanded={parents.length > 1 ? menu === "parents" : undefined}
           title={parents.length === 0 ? "Aucun parent connu" : "Centrer la vue sur un parent"}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -110,14 +116,58 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
           </svg>
           Vue initiale
         </button>
-        <button type="button" className="arbre-btn" onClick={onFit} title="Recadrer la vue actuelle">
+        <button type="button" className="arbre-btn" onClick={onFit} title="Recadrer la vue actuelle" aria-label="Recadrer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
           </svg>
-          Recadrer
+          <span className="arbre-btn-label-optional">Recadrer</span>
         </button>
+        {onAdd && (
+          <button
+            type="button"
+            className="arbre-btn arbre-btn-accent"
+            onClick={() => setMenu((m) => (m === "add" ? null : "add"))}
+            aria-expanded={menu === "add"}
+            title="Ajouter une personne reliée à la personne au centre"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Ajouter
+          </button>
+        )}
 
-        {menuOpen && parents.length > 1 && (
+        {menu === "add" && onAdd && (
+          <div className="arbre-panel arbre-menu arbre-menu-right" role="menu">
+            {(
+              [
+                ["child", "Un enfant"],
+                ["spouse", "Un conjoint"],
+                ["parent", "Un parent"],
+              ] as const
+            ).map(([relation, label]) => {
+              const full = relation === "parent" && parents.length >= 2;
+              return (
+                <button
+                  key={relation}
+                  type="button"
+                  role="menuitem"
+                  className="arbre-btn"
+                  disabled={full}
+                  title={full ? "Les deux parents sont déjà connus" : undefined}
+                  onClick={() => {
+                    setMenu(null);
+                    onAdd(relation);
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {menu === "parents" && parents.length > 1 && (
           <div className="arbre-panel arbre-menu" role="menu">
             {parents.map((p) => (
               <button
@@ -126,7 +176,7 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
                 role="menuitem"
                 className="arbre-btn"
                 onClick={() => {
-                  setMenuOpen(false);
+                  setMenu(null);
                   onGo(p.id);
                 }}
               >

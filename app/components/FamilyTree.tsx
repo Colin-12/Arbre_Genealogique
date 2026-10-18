@@ -8,6 +8,8 @@ import { fullName, lifeLine, sortSiblings } from "@/lib/family";
 import { updateUnionLinks } from "@/lib/unions";
 import { nextTrail, parentsOf, plainName } from "@/lib/navigation";
 import TreeNav from "./TreeNav";
+import AddPersonDialog from "./AddPersonDialog";
+import type { Relation } from "@/lib/editTree";
 
 type F3 = typeof import("family-chart");
 type ChartInstance = ReturnType<F3["createChart"]>;
@@ -31,11 +33,14 @@ type Props = {
   dataUrl?: string;
   /** Si fournie, affiche "Se déconnecter" dans le bandeau. */
   onSignOut?: () => void;
+  /** Arbre affiché et droit de modification : active le bouton "Ajouter". */
+  treeId?: string;
+  canEdit?: boolean;
   /** Personne affichée au centre au départ (id). Par défaut : la première du fichier. */
   mainId?: string;
 };
 
-export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", onSignOut, mainId }: Props) {
+export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", onSignOut, treeId, canEdit = false, mainId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ChartInstance | null>(null);
   const f3Ref = useRef<F3 | null>(null);
@@ -45,6 +50,8 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
   const [trail, setTrail] = useState<string[]>([]);
   const [visible, setVisible] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState<Relation | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const isNarrow = () => (containerRef.current?.clientWidth ?? Infinity) < NARROW_PX;
 
@@ -88,6 +95,27 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
     if (isNarrow()) centerOnMain(400);
     else chart.updateTree({ tree_position: "fit", transition_time: 400 });
   }, [centerOnMain]);
+
+  /** Recharge les personnes depuis la base après un ajout, sans perdre la vue ni le fil d'Ariane. */
+  const reload = useCallback(async () => {
+    const chart = chartRef.current;
+    if (!chart || !loadData) return;
+    const data = await loadData();
+    chart.updateData(data);
+    if (isNarrow()) {
+      chart.updateTree({ tree_position: "inherit" });
+      centerOnMain(600);
+    } else {
+      chart.updateTree({ tree_position: "fit" });
+    }
+    setPeople(data);
+  }, [loadData, centerOnMain]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(null), 3500);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -216,6 +244,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
     return { id, label: id === current && year ? `${plainName(person)} (${year})` : plainName(person) };
   });
   const parents = parentsOf(people, current).map((p) => ({ id: p.id, label: label(p.id) }));
+  const anchor = people.find((p) => p.id === current);
 
   return (
     <div className="arbre-shell">
@@ -229,8 +258,28 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         onInitial={() => goTo(initialId, true)}
         onFit={refit}
         onSignOut={onSignOut}
+        onAdd={canEdit && treeId && anchor ? setAdding : undefined}
       />
       <div ref={containerRef} className="f3 arbre" />
+      {adding && treeId && anchor && (
+        <AddPersonDialog
+          treeId={treeId}
+          anchor={anchor}
+          relation={adding}
+          people={people}
+          onClose={() => setAdding(null)}
+          onDone={(name) => {
+            setAdding(null);
+            setNotice(`${name || "Personne"} ajouté(e)`);
+            reload().catch((e) => setNotice(`Ajout fait, mais l'affichage n'a pas pu se mettre à jour : ${e instanceof Error ? e.message : e}`));
+          }}
+        />
+      )}
+      {notice && (
+        <div className="arbre-toast" role="status">
+          {notice}
+        </div>
+      )}
     </div>
   );
 }

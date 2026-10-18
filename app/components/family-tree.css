@@ -288,6 +288,18 @@
   padding: 6px;
 }
 
+.arbre-menu-right {
+  left: auto;
+  right: 0;
+}
+
+@media (max-width: 479px) {
+  /* Très petit écran : "Recadrer" garde son icône seule pour laisser la place à "Ajouter" */
+  .arbre-btn-label-optional {
+    display: none;
+  }
+}
+
 @media (max-width: 699px) {
   .arbre-nav {
     padding: 8px;
@@ -364,16 +376,226 @@
   width: 100%;
   justify-content: center;
   min-height: 44px;
+}
+/* Bouton d'action principale (Ajouter, Relier, Recevoir le lien) */
+.arbre-btn-accent,
+.arbre-btn-primary {
   background: var(--nav-accent);
   border-color: var(--nav-accent);
   color: #fff;
 }
+.arbre-btn-accent:hover:not(:disabled),
 .arbre-btn-primary:hover:not(:disabled) {
   background: #17495f;
+  border-color: #17495f;
   color: #fff;
 }
 .arbre-login-error {
   margin-top: 12px;
   font-size: 13px;
   color: #b3261e;
+}
+
+/* =====================================================================
+   Formulaire d'ajout d'une personne (voir AddPersonDialog.tsx)
+   ===================================================================== */
+.arbre-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(30, 25, 15, 0.45);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --nav-text: #2a2a2a;
+  --nav-muted: #6f6a5f;
+  --nav-border: #d9d2c3;
+  --nav-accent: #1f5f7a;
+}
+.arbre-modal {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 460px;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 20px;
+  border-radius: 14px;
+  background: #f7f4ee;
+  color: var(--nav-text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+}
+.arbre-modal h2 {
+  margin: 0 0 14px;
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.arbre-modal-name {
+  font-weight: 700;
+}
+.arbre-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--nav-muted);
+}
+.arbre-label .arbre-field {
+  margin-top: 4px;
+}
+.arbre-name-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.arbre-fieldset {
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+.arbre-fieldset legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--nav-muted);
+}
+.arbre-date-row {
+  display: grid;
+  grid-template-columns: 1fr 1.6fr 0.9fr;
+  gap: 8px;
+}
+.arbre-date-row .arbre-field {
+  margin-bottom: 0;
+  padding: 0 8px;
+}
+.arbre-radios {
+  display: flex;
+  gap: 18px;
+  min-height: 44px;
+  align-items: center;
+  font-size: 15px;
+}
+.arbre-radios label,
+.arbre-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  font-size: 15px;
+  cursor: pointer;
+}
+.arbre-check {
+  margin-bottom: 12px;
+}
+.arbre-radios input,
+.arbre-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--nav-accent);
+}
+.arbre-suggest {
+  margin: -4px 0 12px;
+  padding: 8px;
+  border: 1px solid #e0b24f;
+  border-radius: 10px;
+  background: #fff8e6;
+}
+.arbre-suggest-title {
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #7a5a12;
+}
+.arbre-suggest-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--nav-text);
+  cursor: pointer;
+}
+.arbre-suggest-item:hover,
+.arbre-suggest-item:focus-visible {
+  background: #fff;
+}
+.arbre-suggest-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+.arbre-suggest-info {
+  font-size: 12px;
+  color: var(--nav-muted);
+}
+.arbre-picked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px;
+  border: 1px solid var(--nav-border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.arbre-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+.arbre-modal-actions .arbre-btn {
+  min-width: 100px;
+  justify-content: center;
+}
+.arbre-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 60;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 32px);
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: #2a2a2a;
+  color: #fff;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 559px) {
+  /* Téléphone : le formulaire se présente comme un panneau qui monte du bas de l'écran */
+  .arbre-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .arbre-modal {
+    max-width: none;
+    max-height: 92dvh;
+    border-radius: 16px 16px 0 0;
+    padding: 18px 16px 24px;
+  }
+  .arbre-name-row {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}
+
+.arbre-notice-body {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--nav-muted);
+}
+.arbre-notice-body p {
+  margin: 0 0 12px;
 }

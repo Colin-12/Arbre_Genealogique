@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import FamilyTree from "./FamilyTree";
 import { supabase, supabaseConfigured } from "@/lib/supabase";
-import { loadMyTree } from "@/lib/loadTree";
+import { loadMyTreeMeta, loadTreePeople, type TreeMeta } from "@/lib/loadTree";
 
 type Status = "idle" | "sending" | "sent" | "error";
 
@@ -12,6 +12,8 @@ type Status = "idle" | "sending" | "sent" | "error";
 export default function TreeApp() {
   // undefined = on ne sait pas encore (lecture de la session sauvegardée dans le navigateur)
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [meta, setMeta] = useState<TreeMeta | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!supabaseConfigured) return;
@@ -20,24 +22,65 @@ export default function TreeApp() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  // Arbre du compte connecté (et rôle dans cet arbre)
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    loadMyTreeMeta(userId)
+      .then((m) => !cancelled && setMeta(m))
+      .catch((e) => !cancelled && setMetaError(e instanceof Error ? e.message : String(e)));
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const treeId = meta?.userId === userId ? meta?.id : undefined;
+  const loadData = useCallback(() => loadTreePeople(treeId ?? ""), [treeId]);
+
   if (!supabaseConfigured) {
     return (
-      <div className="arbre-login">
-        <div className="arbre-panel arbre-login-card">
-          <h1>Configuration manquante</h1>
-          <p>
-            Crée le fichier <code>.env.local</code> à la racine du projet avec NEXT_PUBLIC_SUPABASE_URL et
-            NEXT_PUBLIC_SUPABASE_ANON_KEY, puis relance <code>npm run dev</code>.
-          </p>
-        </div>
-      </div>
+      <Notice title="Configuration manquante">
+        Crée le fichier <code>.env.local</code> à la racine du projet avec NEXT_PUBLIC_SUPABASE_URL et
+        NEXT_PUBLIC_SUPABASE_ANON_KEY, puis relance <code>npm run dev</code>.
+      </Notice>
     );
   }
 
   if (session === undefined) return <div className="arbre-login" aria-busy="true" />;
   if (session === null) return <LoginForm />;
 
-  return <FamilyTree loadData={loadMyTree} onSignOut={() => supabase.auth.signOut()} />;
+  if (metaError) {
+    return (
+      <Notice title="Impossible d'afficher l'arbre">
+        <p>{metaError}</p>
+        <button type="button" className="arbre-link" onClick={() => supabase.auth.signOut()}>
+          Se déconnecter
+        </button>
+      </Notice>
+    );
+  }
+  if (!treeId || !meta) return <div className="arbre-login" aria-busy="true" />;
+
+  return (
+    <FamilyTree
+      loadData={loadData}
+      treeId={treeId}
+      canEdit={meta.role === "owner" || meta.role === "editor"}
+      onSignOut={() => supabase.auth.signOut()}
+    />
+  );
+}
+
+function Notice({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="arbre-login">
+      <div className="arbre-panel arbre-login-card">
+        <h1>{title}</h1>
+        <div className="arbre-notice-body">{children}</div>
+      </div>
+    </div>
+  );
 }
 
 function LoginForm() {

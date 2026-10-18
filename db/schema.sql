@@ -206,7 +206,15 @@ language sql stable as $$
   where p.tree_id = p_tree
     and p.deleted_at is null
     and length(q.s) >= 2
-    and (p.search_name % q.s or p.search_name like '%' || q.s || '%')
+    and (
+      p.search_name % q.s
+      -- chaque mot saisi doit se retrouver dans le nom, dans n'importe quel ordre
+      -- ("lé b" retrouve "Léa Benali", "benali lea" aussi)
+      or not exists (
+        select 1 from unnest(string_to_array(q.s, ' ')) as w
+        where w <> '' and p.search_name not like '%' || replace(replace(replace(w, '\', '\\'), '%', '\%'), '_', '\_') || '%'
+      )
+    )
   order by score desc, p.last_name, p.first_names
   limit p_limit;
 $$;
