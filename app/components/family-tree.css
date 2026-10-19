@@ -1368,3 +1368,15 @@
 }
 
 .arbre-links-kids { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 12px; border: 1px solid var(--nav-border); border-radius: 12px; }
+
+/* Tutoriel */
+.arbre-tuto-dots { display: flex; gap: 6px; margin: 0 0 12px; }
+.arbre-tuto-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--nav-border); }
+.arbre-tuto-dot.is-done { background: var(--nav-accent); }
+.arbre-tuto-body { font-size: 15px; line-height: 1.5; }
+.arbre-tuto-body p { margin: 0 0 10px; }
+.arbre-tuto-body ul { margin: 0 0 10px; padding-left: 20px; }
+.arbre-tuto-body li { margin: 0 0 6px; }
+.arbre-tuto-step { font-size: 13px; opacity: 0.7; margin: 0 0 4px; }
+.arbre-tuto-never { align-self: flex-start; margin: 4px 0 0; }
+.arbre-modal h3 { margin: 0 0 8px; font-size: 18px; }

@@ -13,6 +13,8 @@ type Props = {
   onCreate: () => void;
   /** Ouvre l'écran "Quitter ou supprimer un arbre". */
   onManage: () => void;
+  /** Ouvre le tutoriel. */
+  onHelp: () => void;
   /** Adresse du compte connecté. */
   email?: string;
   onSignOut: () => void;
@@ -20,7 +22,7 @@ type Props = {
 };
 
 /** Mes arbres : changer d'arbre, en créer un nouveau, se déconnecter. */
-export default function TreesDialog({ trees, currentId, onSwitch, pending = [], onCreate, onManage, email, onSignOut, onClose }: Props) {
+export default function TreesDialog({ trees, currentId, onSwitch, pending = [], onCreate, onManage, onHelp, email, onSignOut, onClose }: Props) {
   const titleId = useId();
 
   useEffect(() => {
@@ -78,6 +80,10 @@ export default function TreesDialog({ trees, currentId, onSwitch, pending = [], 
             </button>
           )}
         </div>
+
+        <button type="button" className="arbre-link" onClick={onHelp}>
+          Comment ça marche ?
+        </button>
 
         {email && <p className="arbre-hint arbre-account">Connecté avec {email}</p>}
 

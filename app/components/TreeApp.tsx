@@ -10,6 +10,8 @@ import CreateTreeDialog from "./CreateTreeDialog";
 import PushToggle from "./PushToggle";
 import LeaveTreeDialog from "./LeaveTreeDialog";
 import TreesDialog from "./TreesDialog";
+import TutorialDialog from "./TutorialDialog";
+import { dismissTutorial, markTutorialSeenThisVisit, tutorialDismissed, tutorialSeenThisVisit } from "@/lib/tutorial";
 import {
   clearAccessCode,
   friendlyLoginError,
@@ -39,6 +41,8 @@ export default function TreeApp() {
   // Lien de demande d'accès (?rejoindre=...) ouvert par cette personne, et demandes qu'elle a déjà envoyées
   const [access, setAccess] = useState<{ code: string; info: TreeForCode | null; error: string | null } | null>(null);
   const [requests, setRequests] = useState<MyAccessRequest[]>([]);
+  // Tutoriel : proposé tout seul à l'ouverture d'un arbre, tant que la personne n'a pas dit « Ne plus me montrer ça »
+  const [tutorial, setTutorial] = useState(false);
 
   // Liens reçus (?join=... ancien lien d'invitation, ?rejoindre=... demande d'accès) : on garde le code de côté, le temps de se connecter
   useEffect(() => {
@@ -110,6 +114,23 @@ export default function TreeApp() {
 
   const meta = trees?.find((t) => t.id === currentId);
   const treeId = meta?.id;
+
+  const hasTree = Boolean(treeId);
+  useEffect(() => {
+    if (!userId || !hasTree || tutorialSeenThisVisit()) return;
+    let cancelled = false;
+    tutorialDismissed()
+      .then((off) => {
+        if (cancelled) return;
+        markTutorialSeenThisVisit();
+        if (!off) setTutorial(true);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, hasTree]);
+
   const loadData = useCallback(() => loadTreePeople(treeId ?? ""), [treeId]);
 
   function switchTo(id: string) {
@@ -184,9 +205,23 @@ export default function TreeApp() {
           pending={requests}
           onCreate={() => setDialog("create")}
           onManage={() => setDialog("manage")}
+          onHelp={() => {
+            setDialog(null);
+            setTutorial(true);
+          }}
           email={session.user.email ?? undefined}
           onSignOut={() => supabase.auth.signOut()}
           onClose={() => setDialog(null)}
+        />
+      )}
+      {tutorial && (
+        <TutorialDialog
+          role={meta?.role}
+          onClose={() => setTutorial(false)}
+          onNeverShow={() => {
+            setTutorial(false);
+            dismissTutorial().catch(() => {});
+          }}
         />
       )}
       {dialog === "manage" && <LeaveTreeDialog trees={trees} onRemoved={onRemoved} onBack={() => setDialog("trees")} />}
