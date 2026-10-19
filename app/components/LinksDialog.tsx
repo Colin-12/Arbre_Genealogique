@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Datum } from "family-chart";
-import { removeRelation } from "@/lib/editTree";
+import { linkChildrenToCouple, removeRelation } from "@/lib/editTree";
 import { describePerson } from "@/lib/describe";
 import { plainName } from "@/lib/navigation";
 import Modal from "./Modal";
@@ -82,6 +82,24 @@ export default function LinksDialog({ treeId, anchor, people, onClose, onChanged
     );
   };
 
+  // Enfants qui n'ont que cette personne comme parent connu : ils peuvent être rattachés à un conjoint
+  const soloChildren = children.filter((c) => c.rels.parents.length === 1);
+  const [kids, setKids] = useState<Record<string, string[]>>({});
+
+  async function linkKids(spouse: Datum) {
+    const ids = kids[spouse.id] ?? [];
+    if (ids.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await linkChildrenToCouple(treeId, anchor.id, spouse.id, ids);
+      onChanged(`${ids.length} enfant(s) relié(s) aussi à ${plainName(spouse)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+    setBusy(false);
+  }
+
   const nothing = parents.length + spouses.length + children.length === 0;
   const me = plainName(anchor);
 
@@ -122,6 +140,33 @@ export default function LinksDialog({ treeId, anchor, people, onClose, onChanged
               );
             })}
           </ul>
+          {soloChildren.length > 0 &&
+            spouses.map((s) => {
+              const chosen = kids[s.id] ?? [];
+              return (
+                <div key={`kids-${s.id}`} className="arbre-links-kids">
+                  <p className="arbre-hint">
+                    Enfants de {me} qui sont aussi ceux de {plainName(s)} ? Coche-les pour les relier aux deux parents :
+                  </p>
+                  {soloChildren.map((c) => (
+                    <label key={c.id} className="arbre-check">
+                      <input
+                        type="checkbox"
+                        checked={chosen.includes(c.id)}
+                        disabled={busy}
+                        onChange={(e) =>
+                          setKids((k) => ({ ...k, [s.id]: e.target.checked ? [...chosen, c.id] : chosen.filter((x) => x !== c.id) }))
+                        }
+                      />{" "}
+                      {plainName(c)}
+                    </label>
+                  ))}
+                  <button type="button" className="arbre-btn" disabled={busy || chosen.length === 0} onClick={() => linkKids(s)}>
+                    Relier à {plainName(s)}
+                  </button>
+                </div>
+              );
+            })}
         </section>
       )}
 

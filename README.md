@@ -10,7 +10,7 @@ On se connecte avec son adresse e-mail (un lien arrive dans la boîte, pas de mo
 
 Chaque personne a une fiche avec ses dates (complètes ou partielles : on peut ne connaître que l'année, ou le mois), ses lieux, son nom de naissance, un commentaire, une photo de profil et une galerie. Sur une photo on indique qui apparaît, et elle s'affiche dans la fiche de chacun. L'âge est calculé tout seul (« environ 76 ans » quand seule l'année de naissance est connue), et les frères et sœurs sont toujours classés du plus âgé au plus jeune.
 
-Pour modifier l'arbre, on ajoute un enfant, un conjoint, un parent, un frère ou une sœur à partir d'une personne existante. L'appli propose les personnes déjà saisies pour éviter les doublons. On peut aussi retirer un lien, corriger une erreur ou supprimer quelqu'un (et le rétablir juste après si on s'est trompé).
+Pour modifier l'arbre, on ajoute un enfant, un conjoint, un parent, un frère ou une sœur à partir d'une personne existante. L'appli propose les personnes déjà saisies pour éviter les doublons. On peut aussi retirer un lien, corriger une erreur ou supprimer quelqu'un (et le rétablir juste après si on s'est trompé). Quand on ajoute un conjoint à quelqu'un qui a déjà des enfants, l'appli demande lesquels sont aussi les enfants de ce conjoint (cela se corrige aussi après coup, dans « Corriger les liens »).
 
 Plusieurs arbres peuvent coexister, chacun avec ses membres. Le propriétaire d'un arbre invite ses proches par e-mail avec un rôle : éditeur, commentateur (peut seulement écrire des légendes) ou lecteur. Il peut coller une vingtaine d'adresses d'un coup ; chacun reçoit un lien, clique dessus, et se retrouve dans l'arbre. Pour les familles nombreuses, il peut aussi partager un lien unique (par message, WhatsApp...) : chaque personne crée son compte et fait une demande, que le propriétaire accepte ou refuse depuis l'appli. Le lien seul ne donne accès à rien, et il se change d'un clic s'il a circulé trop loin. Le propriétaire est prévenu de chaque nouvelle demande par e-mail, et par une notification sur son téléphone s'il les a activées ; le demandeur est prévenu de la même façon quand on l'accepte. Quand on crée un arbre, l'appli prévient si un autre contient déjà les mêmes personnes, pour éviter que deux cousins montent chacun leur version de la même famille.
 
@@ -39,7 +39,7 @@ Les limites (3 arbres par personne, 500 personnes par arbre, 200 photos par arbr
 
 Il faut un compte Supabase (l'offre gratuite suffit) et Node.js.
 
-1. Créer un projet Supabase, puis lancer dans l'éditeur SQL, dans cet ordre : `db/schema.sql`, puis `db/002_auth_and_seed.sql` jusqu'à `db/013_delete_tree.sql`.
+1. Créer un projet Supabase, puis lancer dans l'éditeur SQL, dans cet ordre : `db/schema.sql`, puis `db/002_auth_and_seed.sql` jusqu'à `db/014_link_children.sql`.
 2. Dans Authentication, onglet URL Configuration, mettre l'adresse du site (et `http://localhost:3000/**` pour le développement) dans les URL de redirection.
 3. Créer `app/.env.local` avec deux variables : `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Ce sont les valeurs de Settings, API, dans Supabase. La clé « anon » peut être publique ; la clé `service_role`, elle, ne doit jamais se retrouver dans le dépôt ni dans l'application.
 4. Puis :

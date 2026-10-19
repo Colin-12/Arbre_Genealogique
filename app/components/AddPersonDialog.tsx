@@ -5,6 +5,7 @@ import type { Datum } from "family-chart";
 import {
   EMPTY_DATE,
   addRelative,
+  linkChildrenToCouple,
   buildPerson,
   suggestPersons,
   type AddKind,
@@ -42,6 +43,18 @@ export default function AddPersonDialog({ treeId, anchor, relation, people, onCl
     () => anchor.rels.spouses?.map((id) => people.find((p) => p.id === id)).filter((p): p is Datum => Boolean(p)) ?? [],
     [anchor, people]
   );
+
+  // Conjoint : enfants de la personne qui n'ont qu'elle comme parent connu (ils sont peut-être aussi ceux du conjoint)
+  const soloChildren = useMemo(
+    () =>
+      relation === "spouse"
+        ? (anchor.rels.children ?? [])
+            .map((id) => people.find((p) => p.id === id))
+            .filter((c): c is Datum => Boolean(c) && (c as Datum).rels.parents.length === 1)
+        : [],
+    [anchor, people, relation]
+  );
+  const [sharedKids, setSharedKids] = useState<string[]>([]);
 
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
@@ -109,7 +122,7 @@ export default function AddPersonDialog({ treeId, anchor, relation, people, onCl
       const sibling = relation === "sibling";
       const parentIds = anchor.rels.parents ?? [];
       if (sibling && parentIds.length === 0) throw new Error("Aucun parent connu : ajoute d'abord un parent.");
-      await addRelative({
+      const newId = await addRelative({
         treeId,
         anchorId: sibling ? parentIds[0] : anchor.id,
         relation: sibling ? "child" : relation,
@@ -117,6 +130,15 @@ export default function AddPersonDialog({ treeId, anchor, relation, people, onCl
         existingId: picked?.id ?? null,
         person,
       });
+      if (relation === "spouse" && sharedKids.length > 0) {
+        try {
+          await linkChildrenToCouple(treeId, anchor.id, newId, sharedKids);
+        } catch (err) {
+          setError(`Le conjoint est ajouté, mais les enfants n'ont pas pu être reliés : ${err instanceof Error ? err.message : err}. Tu peux le refaire via Modifier, puis Corriger les liens.`);
+          setBusy(false);
+          return;
+        }
+      }
       onDone(picked ? [picked.first_names, picked.last_name].filter(Boolean).join(" ") : `${first} ${last}`.trim());
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -214,6 +236,26 @@ export default function AddPersonDialog({ treeId, anchor, relation, people, onCl
             </label>
             {deceased && <DateFields label="Décès (facultatif, même partiel)" value={death} onChange={setDeath} />}
           </>
+        )}
+
+        {relation === "spouse" && soloChildren.length > 0 && (
+          <fieldset className="arbre-fieldset">
+            <legend>Enfants déjà dans l&apos;arbre</legend>
+            <p className="arbre-hint">
+              Ces enfants n&apos;ont pour l&apos;instant que {plainName(anchor)} comme parent connu. Coche ceux qui sont aussi les enfants de ce
+              conjoint (ne coche rien si aucun).
+            </p>
+            {soloChildren.map((c) => (
+              <label key={c.id} className="arbre-check">
+                <input
+                  type="checkbox"
+                  checked={sharedKids.includes(c.id)}
+                  onChange={(e) => setSharedKids((k) => (e.target.checked ? [...k, c.id] : k.filter((x) => x !== c.id)))}
+                />{" "}
+                {plainName(c)}
+              </label>
+            ))}
+          </fieldset>
         )}
 
         {error && (

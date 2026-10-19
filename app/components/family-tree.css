@@ -1366,3 +1366,5 @@
   margin: 12px 0 0;
   overflow-wrap: anywhere;
 }
+
+.arbre-links-kids { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; margin-top: 12px; padding: 12px; border: 1px solid var(--nav-border); border-radius: 12px; }

@@ -170,6 +170,18 @@ export async function updatePerson(id: string, p: NewPerson): Promise<void> {
   if (!data || data.length === 0) throw new Error("Modification refusée : tu n'as pas le droit de modifier cet arbre.");
 }
 
+/** Des enfants qui n'ont que `parentId` comme parent connu deviennent aussi ceux de `otherId`. */
+export async function linkChildrenToCouple(treeId: string, parentId: string, otherId: string, childIds: string[]): Promise<void> {
+  if (childIds.length === 0) return;
+  const { error } = await supabase.rpc("link_children_to_couple", {
+    p_tree: treeId,
+    p_parent: parentId,
+    p_other: otherId,
+    p_children: childIds,
+  });
+  if (error) throw new Error(friendly(error.message));
+}
+
 /** Retire un lien : 'parent' (détache la personne de son parent) ou 'spouse' (retire le couple). */
 export async function removeRelation(treeId: string, personId: string, kind: "parent" | "spouse", otherId: string): Promise<void> {
   const { error } = await supabase.rpc("remove_relation", {
