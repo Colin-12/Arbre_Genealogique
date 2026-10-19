@@ -1,6 +1,8 @@
 import { supabase } from "./supabase";
 
 export type Relation = "child" | "spouse" | "parent";
+/** Ce que propose le menu « Ajouter » : un frère ou une sœur est un enfant des mêmes parents. */
+export type AddKind = Relation | "sibling";
 export type DatePrecision = "day" | "month" | "year" | "about";
 
 /** Date saisie en trois champs texte (année seule, année + mois, ou date complète). */

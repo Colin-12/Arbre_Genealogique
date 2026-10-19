@@ -7,8 +7,8 @@ import {
   addRelative,
   buildPerson,
   suggestPersons,
+  type AddKind,
   type PartialInput,
-  type Relation,
   type Suggestion,
 } from "@/lib/editTree";
 import { plainName } from "@/lib/navigation";
@@ -19,7 +19,7 @@ type Props = {
   treeId: string;
   /** Personne à laquelle on rattache la nouvelle personne. */
   anchor: Datum;
-  relation: Relation;
+  relation: AddKind;
   people: Datum[];
   onClose: () => void;
   /** Appelé après un ajout réussi, avec le nom de la personne ajoutée. */
@@ -27,7 +27,8 @@ type Props = {
 };
 
 
-const TITLES: Record<Relation, string> = {
+const TITLES: Record<AddKind, string> = {
+  sibling: "Ajouter un frère ou une sœur à",
   child: "Ajouter un enfant à",
   spouse: "Ajouter un conjoint à",
   parent: "Ajouter un parent à",
@@ -104,11 +105,15 @@ export default function AddPersonDialog({ treeId, anchor, relation, people, onCl
 
     setBusy(true);
     try {
+      // Un frère ou une sœur est ajouté comme enfant des mêmes parents que la personne
+      const sibling = relation === "sibling";
+      const parentIds = anchor.rels.parents ?? [];
+      if (sibling && parentIds.length === 0) throw new Error("Aucun parent connu : ajoute d'abord un parent.");
       await addRelative({
         treeId,
-        anchorId: anchor.id,
-        relation,
-        otherId: relation === "child" && other !== "none" ? other : null,
+        anchorId: sibling ? parentIds[0] : anchor.id,
+        relation: sibling ? "child" : relation,
+        otherId: sibling ? (parentIds[1] ?? null) : relation === "child" && other !== "none" ? other : null,
         existingId: picked?.id ?? null,
         person,
       });

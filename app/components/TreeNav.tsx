@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { Datum } from "family-chart";
-import type { Relation } from "@/lib/editTree";
+import type { AddKind } from "@/lib/editTree";
 import PersonSearch from "./PersonSearch";
 
 export type Crumb = { id: string; label: string };
@@ -35,7 +35,7 @@ type Props = {
   /** Si fournie, affiche le bouton "Fiche" (consultation de la personne au centre). */
   onSheet?: () => void;
   /** Si fournie, affiche le bouton "Ajouter" (réservé aux propriétaires et éditeurs). */
-  onAdd?: (relation: Relation) => void;
+  onAdd?: (relation: AddKind) => void;
   /** Si fournie, affiche le bouton "Modifier" (corriger, retirer un lien, supprimer). */
   onManage?: (action: ManageAction) => void;
   /** Faux quand il ne reste qu'une personne : on ne peut plus supprimer. */
@@ -259,6 +259,7 @@ export default function TreeNav({ trail, visible, total, parents, atStart, onGo,
                 ["child", "Un enfant"],
                 ["spouse", "Un conjoint"],
                 ["parent", "Un parent"],
+                ["sibling", "Un frère ou une sœur"],
               ] as const
             ).map(([relation, label]) => {
               const full = relation === "parent" && parents.length >= 2;

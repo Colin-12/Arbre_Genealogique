@@ -16,7 +16,7 @@ import { ROLE_LABEL, pendingRequestsCount, type Role } from "@/lib/sharing";
 import LinksDialog from "./LinksDialog";
 import DeletePersonDialog from "./DeletePersonDialog";
 import type { ManageAction } from "./TreeNav";
-import { restorePerson, type Relation } from "@/lib/editTree";
+import { restorePerson, type AddKind } from "@/lib/editTree";
 
 type F3 = typeof import("family-chart");
 type ChartInstance = ReturnType<F3["createChart"]>;
@@ -67,7 +67,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
   const [trail, setTrail] = useState<string[]>([]);
   const [visible, setVisible] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [adding, setAdding] = useState<Relation | null>(null);
+  const [adding, setAdding] = useState<AddKind | null>(null);
   const [managing, setManaging] = useState<ManageAction | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sharing, setSharing] = useState(false);
@@ -346,7 +346,14 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
         onShare={role === "owner" && treeId && userId ? () => setSharing(true) : undefined}
         shareBadge={pendingRequests}
         roleLabel={role && !canEdit ? (ROLE_LABEL[role as Role] ?? role) : undefined}
-        onAdd={canEdit && treeId && anchor ? setAdding : undefined}
+        onAdd={
+          canEdit && treeId && anchor
+            ? (kind) =>
+                kind === "sibling" && (anchor.rels.parents ?? []).length === 0
+                  ? setNotice({ text: `Pour ajouter un frère ou une sœur à ${plainName(anchor)}, ajoute d'abord un de ses parents (Ajouter, puis Un parent).` })
+                  : setAdding(kind)
+            : undefined
+        }
         onManage={canEdit && treeId && anchor ? setManaging : undefined}
         canDelete={people.length > 1}
         searchPeople={people}
