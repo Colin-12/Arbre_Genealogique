@@ -114,7 +114,7 @@ function stepsFor(role?: string): Step[] {
     title: "Tes arbres et ton compte",
     body: (
       <>
-        <p>Touche le nom de l&apos;arbre en haut à gauche pour ouvrir « Mes arbres » : changer d&apos;arbre, en créer un, en quitter un, voir avec quelle adresse tu es connecté, te déconnecter.</p>
+        <p>Touche le nom de l&apos;arbre en haut à gauche pour ouvrir « Mes arbres » : changer d&apos;arbre, en créer un, en quitter un, exporter l&apos;arbre en image ou en PDF, voir avec quelle adresse tu es connecté, te déconnecter.</p>
         <p>Sur téléphone, tu peux ajouter l&apos;appli à l&apos;écran d&apos;accueil, depuis le menu de ton navigateur, pour l&apos;ouvrir comme une vraie application.</p>
         <p>Tu retrouveras ce tutoriel à tout moment dans « Mes arbres », avec le bouton « Comment ça marche ? ».</p>
       </>

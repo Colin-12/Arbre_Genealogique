@@ -1380,3 +1380,5 @@
 .arbre-tuto-step { font-size: 13px; opacity: 0.7; margin: 0 0 4px; }
 .arbre-tuto-never { align-self: flex-start; margin: 4px 0 0; }
 .arbre-modal h3 { margin: 0 0 8px; font-size: 18px; }
+.arbre-current-tree { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 4px; padding: 12px; border: 1px solid var(--nav-border); border-radius: 12px; }
+.arbre-current-title { font-size: 14px; }

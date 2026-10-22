@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
 import type { MyTree } from "@/lib/trees";
+import { exportTree, type ExportFormat } from "@/lib/exportTree";
 import { ROLE_LABEL, type MyAccessRequest, type Role } from "@/lib/sharing";
 
 type Props = {
@@ -13,6 +14,8 @@ type Props = {
   onCreate: () => void;
   /** Ouvre l'écran "Quitter ou supprimer un arbre". */
   onManage: () => void;
+  /** Propriétaire : ouvre « Renommer l'arbre ». */
+  onRename: () => void;
   /** Ouvre le tutoriel. */
   onHelp: () => void;
   /** Adresse du compte connecté. */
@@ -22,8 +25,24 @@ type Props = {
 };
 
 /** Mes arbres : changer d'arbre, en créer un nouveau, se déconnecter. */
-export default function TreesDialog({ trees, currentId, onSwitch, pending = [], onCreate, onManage, onHelp, email, onSignOut, onClose }: Props) {
+export default function TreesDialog({ trees, currentId, onSwitch, pending = [], onCreate, onManage, onRename, onHelp, email, onSignOut, onClose }: Props) {
   const titleId = useId();
+  const current = trees.find((t) => t.id === currentId);
+  const [exporting, setExporting] = useState<ExportFormat | null>(null);
+  const [exportMsg, setExportMsg] = useState<{ text: string; error: boolean } | null>(null);
+
+  async function doExport(format: ExportFormat) {
+    if (!current) return;
+    setExporting(format);
+    setExportMsg(null);
+    try {
+      await exportTree(format, current.name);
+      setExportMsg({ text: format === "png" ? "Image téléchargée." : "PDF téléchargé.", error: false });
+    } catch (err) {
+      setExportMsg({ text: `Export impossible : ${err instanceof Error ? err.message : err}`, error: true });
+    }
+    setExporting(null);
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -62,6 +81,33 @@ export default function TreesDialog({ trees, currentId, onSwitch, pending = [], 
               </li>
             ))}
           </ul>
+        )}
+
+        {current && (
+          <section className="arbre-current-tree" aria-label="Arbre ouvert">
+            <div className="arbre-current-title">
+              Arbre ouvert : <strong>{current.name}</strong>
+            </div>
+            <div className="arbre-share-actions">
+              <button type="button" className="arbre-btn" onClick={() => doExport("png")} disabled={exporting !== null}>
+                {exporting === "png" ? "Préparation..." : "Exporter en image"}
+              </button>
+              <button type="button" className="arbre-btn" onClick={() => doExport("pdf")} disabled={exporting !== null}>
+                {exporting === "pdf" ? "Préparation..." : "Exporter en PDF"}
+              </button>
+              {current.role === "owner" && (
+                <button type="button" className="arbre-btn" onClick={onRename} disabled={exporting !== null}>
+                  Renommer l&apos;arbre
+                </button>
+              )}
+            </div>
+            <p className="arbre-hint">L&apos;export reprend l&apos;arbre tel qu&apos;il est affiché à l&apos;écran.</p>
+            {exportMsg && (
+              <p className={exportMsg.error ? "arbre-login-error" : "arbre-hint"} role={exportMsg.error ? "alert" : "status"}>
+                {exportMsg.text}
+              </p>
+            )}
+          </section>
         )}
 
         {pending.length > 0 && (

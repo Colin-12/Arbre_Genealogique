@@ -11,6 +11,7 @@ import PushToggle from "./PushToggle";
 import LeaveTreeDialog from "./LeaveTreeDialog";
 import TreesDialog from "./TreesDialog";
 import TutorialDialog from "./TutorialDialog";
+import RenameTreeDialog from "./RenameTreeDialog";
 import { dismissTutorial, markTutorialSeenThisVisit, tutorialDismissed, tutorialSeenThisVisit } from "@/lib/tutorial";
 import {
   clearAccessCode,
@@ -37,7 +38,7 @@ export default function TreeApp() {
   const [trees, setTrees] = useState<MyTree[] | null>(null);
   const [currentId, setCurrentId] = useState<string | undefined>(undefined);
   const [metaError, setMetaError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<"trees" | "create" | "manage" | null>(null);
+  const [dialog, setDialog] = useState<"trees" | "create" | "manage" | "rename" | null>(null);
   // Lien de demande d'accès (?rejoindre=...) ouvert par cette personne, et demandes qu'elle a déjà envoyées
   const [access, setAccess] = useState<{ code: string; info: TreeForCode | null; error: string | null } | null>(null);
   const [requests, setRequests] = useState<MyAccessRequest[]>([]);
@@ -205,6 +206,7 @@ export default function TreeApp() {
           pending={requests}
           onCreate={() => setDialog("create")}
           onManage={() => setDialog("manage")}
+          onRename={() => setDialog("rename")}
           onHelp={() => {
             setDialog(null);
             setTutorial(true);
@@ -221,6 +223,21 @@ export default function TreeApp() {
           onNeverShow={() => {
             setTutorial(false);
             dismissTutorial().catch(() => {});
+          }}
+        />
+      )}
+      {dialog === "rename" && meta && (
+        <RenameTreeDialog
+          treeId={meta.id}
+          currentName={meta.name}
+          onClose={() => setDialog("trees")}
+          onDone={async () => {
+            try {
+              setTrees(await listMyTrees());
+            } catch {
+              // la liste se rechargera à la prochaine ouverture
+            }
+            setDialog("trees");
           }}
         />
       )}

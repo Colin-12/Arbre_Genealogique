@@ -164,3 +164,15 @@ function friendly(message: string): string {
   }
   return message;
 }
+
+/** Renomme un arbre (propriétaire seulement). Retourne le nom enregistré. */
+export async function renameTree(treeId: string, name: string): Promise<string> {
+  const { data, error } = await supabase.rpc("rename_tree", { p_tree: treeId, p_name: name });
+  if (error) {
+    if (/could not find the function|schema cache|PGRST202/i.test(error.message)) {
+      throw new Error("Le renommage n'est pas encore installé (migration 016 non lancée ?).");
+    }
+    throw new Error(error.message);
+  }
+  return String(data);
+}
