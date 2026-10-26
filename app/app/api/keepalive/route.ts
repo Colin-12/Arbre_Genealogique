@@ -26,13 +26,18 @@ export async function GET(request: Request) {
 
   try {
     const res = await fetch(`${url}/rest/v1/trees?select=id&limit=1`, {
-      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      // La clé publique va seulement dans « apikey » : les nouvelles clés Supabase ne sont pas des jetons et sont refusées dans « Authorization »
+      headers: { apikey: key },
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
     });
-    if (!res.ok) return Response.json({ ok: false, status: res.status }, { status: 502 });
+    if (!res.ok) {
+      console.error(`keepalive : Supabase a répondu ${res.status}`);
+      return Response.json({ ok: false, status: res.status }, { status: 502 });
+    }
     return Response.json({ ok: true });
-  } catch {
+  } catch (e) {
+    console.error(`keepalive : Supabase injoignable (${e instanceof Error ? e.name : "erreur"})`);
     return Response.json({ ok: false, error: "Supabase ne répond pas" }, { status: 502 });
   }
 }
