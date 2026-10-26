@@ -54,6 +54,8 @@ Pour déployer sur Vercel, importer le dépôt, indiquer `app` comme dossier rac
 
 Les notifications sont facultatives. Elles passent par une petite route de l'application (`app/api/notify`) que la base appelle quand une demande arrive, ce qui demande quelques réglages côté hébergeur : `NOTIFY_SECRET` (un secret partagé avec la base, qui le lit dans la table `app_settings`), `GMAIL_USER` et `GMAIL_APP_PASSWORD` pour l'e-mail, et un couple de clés `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (générées avec `npx web-push generate-vapid-keys`) pour les notifications du téléphone. Sans ces réglages l'appli fonctionne normalement, simplement sans prévenir personne. Sur iPhone, les notifications ne marchent qu'une fois l'appli ajoutée à l'écran d'accueil.
 
+Sur l'offre gratuite de Supabase, un projet sans activité pendant 7 jours est mis en pause. Une tâche quotidienne (`vercel.json`, route `app/api/keepalive`) envoie une toute petite requête à la base pour l'éviter. Elle demande un réglage côté hébergeur : `CRON_SECRET`, une chaîne aléatoire d'au moins 16 caractères que Vercel envoie tout seul à la tâche.
+
 Détail pratique : le service e-mail intégré de Supabase limite très vite le nombre de liens envoyés. Dès qu'on invite plusieurs personnes, il vaut mieux brancher son propre SMTP (j'utilise un compte Gmail avec un mot de passe d'application, dans Authentication, SMTP Settings). Et il vaut mieux traduire les modèles d'e-mail, sinon les invités reçoivent un message en anglais.
 
 ## Exporter et renommer
