@@ -39,7 +39,7 @@ Les limites (3 arbres par personne, 500 personnes par arbre, 200 photos par arbr
 
 Il faut un compte Supabase (l'offre gratuite suffit) et Node.js.
 
-1. Créer un projet Supabase, puis lancer dans l'éditeur SQL, dans cet ordre : `db/schema.sql`, puis `db/002_auth_and_seed.sql` jusqu'à `db/016_rename_tree.sql`.
+1. Créer un projet Supabase, puis lancer dans l'éditeur SQL, dans cet ordre : `db/schema.sql`, puis `db/002_auth_and_seed.sql` jusqu'à `db/017_keepalive.sql`.
 2. Dans Authentication, onglet URL Configuration, mettre l'adresse du site (et `http://localhost:3000/**` pour le développement) dans les URL de redirection.
 3. Créer `app/.env.local` avec deux variables : `NEXT_PUBLIC_SUPABASE_URL` et `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Ce sont les valeurs de Settings, API, dans Supabase. La clé « anon » peut être publique ; la clé `service_role`, elle, ne doit jamais se retrouver dans le dépôt ni dans l'application.
 4. Puis :
@@ -54,7 +54,7 @@ Pour déployer sur Vercel, importer le dépôt, indiquer `app` comme dossier rac
 
 Les notifications sont facultatives. Elles passent par une petite route de l'application (`app/api/notify`) que la base appelle quand une demande arrive, ce qui demande quelques réglages côté hébergeur : `NOTIFY_SECRET` (un secret partagé avec la base, qui le lit dans la table `app_settings`), `GMAIL_USER` et `GMAIL_APP_PASSWORD` pour l'e-mail, et un couple de clés `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (générées avec `npx web-push generate-vapid-keys`) pour les notifications du téléphone. Sans ces réglages l'appli fonctionne normalement, simplement sans prévenir personne. Sur iPhone, les notifications ne marchent qu'une fois l'appli ajoutée à l'écran d'accueil.
 
-Sur l'offre gratuite de Supabase, un projet sans activité pendant 7 jours est mis en pause. Une tâche quotidienne (`vercel.json`, route `app/api/keepalive`) envoie une toute petite requête à la base pour l'éviter. Elle demande un réglage côté hébergeur : `CRON_SECRET`, une chaîne aléatoire d'au moins 16 caractères que Vercel envoie tout seul à la tâche.
+Sur l'offre gratuite de Supabase, un projet sans activité pendant 7 jours est mis en pause. Une tâche quotidienne (`vercel.json`, route `app/api/keepalive`) envoie une toute petite requête à la base pour l'éviter (la fonction `keepalive()`, migration 017). Elle demande un réglage côté hébergeur : `CRON_SECRET`, une chaîne aléatoire d'au moins 16 caractères que Vercel envoie tout seul à la tâche.
 
 Détail pratique : le service e-mail intégré de Supabase limite très vite le nombre de liens envoyés. Dès qu'on invite plusieurs personnes, il vaut mieux brancher son propre SMTP (j'utilise un compte Gmail avec un mot de passe d'application, dans Authentication, SMTP Settings). Et il vaut mieux traduire les modèles d'e-mail, sinon les invités reçoivent un message en anglais.
 

@@ -3,7 +3,7 @@ import { timingSafeEqual } from "node:crypto";
 /**
  * Évite que Supabase mette le projet en pause pour inactivité (offre gratuite : pause après 7 jours sans activité).
  * Vercel appelle cette adresse une fois par jour (voir vercel.json) ; elle envoie une toute petite requête à la base.
- * Aucune donnée n'est lue ni modifiée : la requête passe par les règles de sécurité et ne renvoie rien d'utile.
+ * Elle appelle la fonction keepalive() (migration 017), qui renvoie seulement l'heure du serveur : aucune donnée n'est lue ni modifiée.
  *
  * Protégée par CRON_SECRET (à renseigner dans Vercel) : Vercel l'envoie tout seul dans l'en-tête Authorization.
  */
@@ -25,9 +25,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const res = await fetch(`${url}/rest/v1/trees?select=id&limit=1`, {
+    const res = await fetch(`${url}/rest/v1/rpc/keepalive`, {
+      method: "POST",
       // La clé publique va seulement dans « apikey » : les nouvelles clés Supabase ne sont pas des jetons et sont refusées dans « Authorization »
-      headers: { apikey: key },
+      headers: { apikey: key, "Content-Type": "application/json" },
+      body: "{}",
       cache: "no-store",
       signal: AbortSignal.timeout(15000),
     });
