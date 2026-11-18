@@ -17,6 +17,7 @@ import LinksDialog from "./LinksDialog";
 import DeletePersonDialog from "./DeletePersonDialog";
 import type { ManageAction } from "./TreeNav";
 import { restorePerson, type AddKind } from "@/lib/editTree";
+import { makeChartBridge, setChartBridge } from "@/lib/chartBridge";
 
 type F3 = typeof import("family-chart");
 type ChartInstance = ReturnType<F3["createChart"]>;
@@ -241,6 +242,24 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
           else goTo(d.data.id);
         });
 
+        // L'export (image, PDF) s'en sert pour déplacer la vue et dessiner toutes les familles de l'arbre
+        setChartBridge(
+          makeChartBridge({
+            chart,
+            f3,
+            label: (d: Datum) => fullName(d),
+            reframe: () => {
+              if (isNarrow()) {
+                chart.updateTree({ tree_position: "inherit" });
+                centerOnMain(0);
+              } else {
+                chart.updateTree({ tree_position: "fit" });
+                keepReadable();
+              }
+            },
+          })
+        );
+
         const startId = mainId ?? data[0]?.id ?? "";
         if (mainId) chart.updateMainId(mainId);
 
@@ -301,6 +320,7 @@ export default function FamilyTree({ loadData, dataUrl = "/sample_family.json", 
       window.clearTimeout(resizeTimer);
       if (frame) cancelAnimationFrame(frame);
       chartRef.current = null;
+      setChartBridge(null);
       if (container) container.innerHTML = "";
     };
   }, [loadData, dataUrl, mainId, goTo, centerOnMain, refit, keepReadable]);

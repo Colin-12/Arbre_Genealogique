@@ -1,3 +1,6 @@
+import { getChartBridge } from "./chartBridge";
+import { planSections } from "./exportSections";
+
 export type ExportFormat = "png" | "pdf";
 
 const PAD = 48; // marge autour de l'arbre (px)
@@ -42,57 +45,68 @@ function pageBackground(container: HTMLElement): string {
   return "#ffffff";
 }
 
-/** Dessine tout l'arbre affiché (pas seulement la partie visible à l'écran) et renvoie une image PNG. */
+const frames = (n: number) =>
+  new Promise<void>((resolve) => {
+    const step = (left: number) => (left <= 0 ? resolve() : requestAnimationFrame(() => step(left - 1)));
+    step(n);
+  });
+const sleep = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+
+function cardsOf(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(".card[data-id]"));
+}
+
+/** Attend que l'arbre affiché soit stable et montre bien les personnes attendues (après un changement de personne centrale). */
+async function waitForView(container: HTMLElement, expected: Set<string>): Promise<void> {
+  const signature = () =>
+    cardsOf(container)
+      .map((c) => {
+        const r = c.getBoundingClientRect();
+        return `${c.dataset.id}:${Math.round(r.left)},${Math.round(r.top)},${getComputedStyle(c).opacity}`;
+      })
+      .sort()
+      .join("|");
+  const complete = () => {
+    const ids = new Set(cardsOf(container).map((c) => c.dataset.id ?? ""));
+    return ids.size === expected.size && [...expected].every((id) => ids.has(id));
+  };
+  await frames(2);
+  const started = Date.now();
+  let previous = "";
+  while (Date.now() - started < 4000) {
+    const now = signature();
+    const allVisible = cardsOf(container).every((c) => Number(getComputedStyle(c).opacity) > 0.99);
+    if (complete() && allVisible && now === previous) break;
+    previous = now;
+    await sleep(80);
+  }
+  await sleep(120); // laisse repeindre les liens de couple
+}
+
+/** Dessine tout l'arbre (toutes les familles, pas seulement la partie visible à l'écran) et renvoie une image PNG. */
 async function renderTreePng(treeName: string): Promise<{ dataUrl: string; width: number; height: number; ratio: number }> {
   const container = document.querySelector<HTMLElement>(".f3.arbre");
   const cardsView = container?.querySelector<HTMLElement>("div.cards_view");
   const view = container?.querySelector<SVGGElement>("g.view");
   if (!container || !cardsView || !view) throw new Error("L'arbre n'est pas encore affiché.");
-
-  const cards = Array.from(container.querySelectorAll<HTMLElement>(".card[data-id]"));
-  if (cards.length === 0) throw new Error("Il n'y a aucune personne à exporter.");
-
-  // Emplacement de tout l'arbre, dans le repère de l'arbre (indépendant du zoom et du déplacement actuels)
-  const cv = readTransform(cardsView.style.transform);
-  const origin = container.getBoundingClientRect();
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const card of cards) {
-    const r = card.getBoundingClientRect();
-    minX = Math.min(minX, (r.left - origin.left - cv.x) / cv.k);
-    maxX = Math.max(maxX, (r.right - origin.left - cv.x) / cv.k);
-    minY = Math.min(minY, (r.top - origin.top - cv.y) / cv.k);
-    maxY = Math.max(maxY, (r.bottom - origin.top - cv.y) / cv.k);
-  }
-  try {
-    const b = view.getBBox();
-    if (b.width > 0 && b.height > 0) {
-      minX = Math.min(minX, b.x);
-      minY = Math.min(minY, b.y);
-      maxX = Math.max(maxX, b.x + b.width);
-      maxY = Math.max(maxY, b.y + b.height);
-    }
-  } catch {
-    // getBBox peut échouer sur un élément masqué : les cartes suffisent alors
-  }
-  const treeW = Math.ceil(maxX - minX) + PAD * 2;
-  const treeH = Math.ceil(maxY - minY) + PAD * 2;
-  const shiftX = PAD - minX;
-  const shiftY = PAD - minY;
+  if (cardsOf(container).length === 0) throw new Error("Il n'y a aucune personne à exporter.");
 
   const bg = pageBackground(container);
   const HEADER_H = 84;
+  const CAPTION_H = 56;
 
-  // Copie hors écran, remise à l'échelle 1 et cadrée sur tout l'arbre
+  // Vues à dessiner : une seule si le bouton d'export n'a pas accès à l'arbre (secours), sinon assez de vues pour montrer tout le monde
+  const bridge = getChartBridge();
+  const mains: string[] = bridge ? planSections(bridge.people(), (id) => bridge.coverOf(id)) : [];
+  const sections: (string | null)[] = mains.length > 0 ? mains : [null];
+
+  // Copie hors écran, remise à l'échelle 1
   const wrapper = document.createElement("div");
   wrapper.setAttribute("aria-hidden", "true");
   Object.assign(wrapper.style, {
     position: "fixed",
     left: "-100000px",
     top: "0",
-    width: `${treeW}px`,
     background: bg,
     fontFamily: getComputedStyle(document.body).fontFamily,
     color: getComputedStyle(document.body).color,
@@ -104,39 +118,109 @@ async function renderTreePng(treeName: string): Promise<{ dataUrl: string; width
   title.textContent = treeName;
   Object.assign(title.style, { fontSize: "30px", fontWeight: "600", lineHeight: "1.2" });
   const sub = document.createElement("div");
-  sub.textContent = `Arbre généalogique · ${cards.length} personne${cards.length > 1 ? "s" : ""} · ${new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
   Object.assign(sub.style, { fontSize: "15px", opacity: "0.65", marginTop: "4px" });
   header.append(title, sub);
-
-  const stage = document.createElement("div");
-  Object.assign(stage.style, { position: "relative", width: `${treeW}px`, height: `${treeH}px`, overflow: "hidden" });
-  const clone = container.cloneNode(true) as HTMLElement;
-  Object.assign(clone.style, { position: "absolute", left: "0", top: "0", width: `${treeW}px`, height: `${treeH}px`, background: "transparent" });
-  clone.querySelectorAll(".f3-nav-cont, .fit_screen_icon").forEach((el) => el.remove());
-  const placement = `translate(${shiftX}px, ${shiftY}px) scale(1)`;
-  clone.querySelector<SVGGElement>("g.view")?.style.setProperty("transform", placement);
-  const clonedCards = clone.querySelector<HTMLElement>("div.cards_view");
-  if (clonedCards) clonedCards.style.transform = placement;
-  stage.appendChild(clone);
-  wrapper.append(header, stage);
+  wrapper.append(header);
   document.body.appendChild(wrapper);
 
-  // Les traits sont des éléments SVG : on écrit leurs couleurs et épaisseurs directement dessus,
-  // sinon ils ressortent blancs (ou noirs) dans l'image, qui n'a pas accès aux feuilles de style.
-  clone.querySelectorAll<SVGElement>("svg path, svg line, svg polyline, svg rect, svg circle").forEach((el) => {
-    const cs = getComputedStyle(el);
-    el.setAttribute("stroke", cs.stroke);
-    el.setAttribute("stroke-width", cs.strokeWidth);
-    el.setAttribute("stroke-linecap", cs.strokeLinecap);
-    el.setAttribute("stroke-linejoin", cs.strokeLinejoin);
-    el.setAttribute("fill", cs.fill);
-    el.style.setProperty("animation", "none");
-    el.style.setProperty("vector-effect", "none");
-  });
+  const seen = new Set<string>();
+  let maxW = 640;
+  let totalH = HEADER_H;
 
   try {
-    const width = treeW;
-    const height = treeH + HEADER_H;
+    try {
+      for (const [index, main] of sections.entries()) {
+        if (main && bridge) {
+          bridge.focus(main);
+          await waitForView(container, new Set(bridge.coverOf(main)));
+        }
+
+        const cards = cardsOf(container);
+        cards.forEach((c) => c.dataset.id && seen.add(c.dataset.id));
+
+        // Emplacement de ces cartes, dans le repère de l'arbre (indépendant du zoom et du déplacement actuels)
+        const liveCards = container.querySelector<HTMLElement>("div.cards_view") ?? cardsView;
+        const liveView = container.querySelector<SVGGElement>("g.view") ?? view;
+        const cv = readTransform(liveCards.style.transform);
+        const origin = container.getBoundingClientRect();
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        for (const card of cards) {
+          const r = card.getBoundingClientRect();
+          minX = Math.min(minX, (r.left - origin.left - cv.x) / cv.k);
+          maxX = Math.max(maxX, (r.right - origin.left - cv.x) / cv.k);
+          minY = Math.min(minY, (r.top - origin.top - cv.y) / cv.k);
+          maxY = Math.max(maxY, (r.bottom - origin.top - cv.y) / cv.k);
+        }
+        try {
+          const b = liveView.getBBox();
+          if (b.width > 0 && b.height > 0) {
+            minX = Math.min(minX, b.x);
+            minY = Math.min(minY, b.y);
+            maxX = Math.max(maxX, b.x + b.width);
+            maxY = Math.max(maxY, b.y + b.height);
+          }
+        } catch {
+          // getBBox peut échouer sur un élément masqué : les cartes suffisent alors
+        }
+        const treeW = Math.ceil(maxX - minX) + PAD * 2;
+        const treeH = Math.ceil(maxY - minY) + PAD * 2;
+        const placement = `translate(${PAD - minX}px, ${PAD - minY}px) scale(1)`;
+
+        if (sections.length > 1 && bridge && main) {
+          const caption = document.createElement("div");
+          const label = bridge.label(main);
+          caption.textContent = label ? `Famille de ${label}` : `Famille ${index + 1}`;
+          Object.assign(caption.style, {
+            height: `${CAPTION_H}px`,
+            padding: `${PAD / 2}px ${PAD}px 0`,
+            boxSizing: "border-box",
+            fontSize: "20px",
+            fontWeight: "600",
+            borderTop: index > 0 ? "1px solid rgba(128,128,128,0.35)" : "none",
+          });
+          wrapper.appendChild(caption);
+          totalH += CAPTION_H;
+        }
+
+        const stage = document.createElement("div");
+        Object.assign(stage.style, { position: "relative", width: `${treeW}px`, height: `${treeH}px`, overflow: "hidden", margin: "0 auto" });
+        const clone = container.cloneNode(true) as HTMLElement;
+        Object.assign(clone.style, { position: "absolute", left: "0", top: "0", width: `${treeW}px`, height: `${treeH}px`, background: "transparent" });
+        clone.querySelectorAll(".f3-nav-cont, .fit_screen_icon").forEach((el) => el.remove());
+        clone.querySelector<SVGGElement>("g.view")?.style.setProperty("transform", placement);
+        const clonedCards = clone.querySelector<HTMLElement>("div.cards_view");
+        if (clonedCards) clonedCards.style.transform = placement;
+        stage.appendChild(clone);
+        wrapper.appendChild(stage);
+        totalH += treeH;
+        maxW = Math.max(maxW, treeW);
+
+        // Les traits sont des éléments SVG : on écrit leurs couleurs et épaisseurs directement dessus,
+        // sinon ils ressortent blancs (ou noirs) dans l'image, qui n'a pas accès aux feuilles de style.
+        clone.querySelectorAll<SVGElement>("svg path, svg line, svg polyline, svg rect, svg circle").forEach((el) => {
+          const cs = getComputedStyle(el);
+          el.setAttribute("stroke", cs.stroke);
+          el.setAttribute("stroke-width", cs.strokeWidth);
+          el.setAttribute("stroke-linecap", cs.strokeLinecap);
+          el.setAttribute("stroke-linejoin", cs.strokeLinejoin);
+          el.setAttribute("fill", cs.fill);
+          el.style.setProperty("animation", "none");
+          el.style.setProperty("vector-effect", "none");
+        });
+      }
+    } finally {
+      // L'arbre affiché à l'écran retrouve sa personne centrale et son cadrage d'avant
+      bridge?.restore();
+    }
+
+    sub.textContent = `Arbre généalogique · ${seen.size} personne${seen.size > 1 ? "s" : ""} · ${new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
+    wrapper.style.width = `${maxW}px`;
+
+    const width = maxW;
+    const height = totalH;
     const ratio = Math.max(0.4, Math.min(2, MAX_SIDE / Math.max(width, height)));
     const { toPng } = await import("html-to-image");
     const dataUrl = await toPng(wrapper, {

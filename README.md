@@ -60,7 +60,7 @@ Détail pratique : le service e-mail intégré de Supabase limite très vite le 
 
 ## Exporter et renommer
 
-Dans « Mes arbres », l'arbre ouvert peut être exporté en image (PNG) ou en PDF : l'export reprend tout l'arbre tel qu'il est affiché (et pas seulement la partie visible à l'écran), avec son nom et la date. Le propriétaire peut aussi renommer l'arbre.
+Dans « Mes arbres », l'arbre ouvert peut être exporté en image (PNG) ou en PDF : l'export reprend toute la famille, et pas seulement la partie visible à l'écran. L'affichage est toujours centré sur une personne (ses ancêtres, ses descendants, leurs conjoints, ses frères et soeurs) ; pour que personne ne manque, l'export empile donc plusieurs vues, la plus grande d'abord, puis une vue par famille qui apporte des personnes absentes des précédentes (par exemple les parents d'un conjoint), chacune avec son titre. Le nom de l'arbre, le nombre de personnes et la date figurent en haut. Le propriétaire peut aussi renommer l'arbre.
 
 ## Tutoriel
 
